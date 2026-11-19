@@ -2,501 +2,1489 @@
 <html lang="zh-HK">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <title>Silent Connect</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- 引入 MediaPipe 手部追蹤模型 -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
 <style>
-  /* =========================================
-     iOS 27 Design System (Liquid Glass & HIG)
-     ========================================= */
+  /* ==========================================================================
+     iOS 27 SDK & Apple Human Interface Guidelines — Liquid Glass 2.0
+     ========================================================================== */
   :root {
-    --system-background: #F2F2F7;
+    /* System Semantic Colors (Light Mode) */
+    --system-background: #FFFFFF;
+    --secondary-system-background: #F2F2F7;
+    --tertiary-system-background: #FFFFFF;
+    --system-grouped-background: #F2F2F7;
     --secondary-system-grouped-background: #FFFFFF;
     --tertiary-system-grouped-background: #F2F2F7;
+
     --label: #000000;
     --secondary-label: rgba(60, 60, 67, 0.6);
+    --tertiary-label: rgba(60, 60, 67, 0.3);
     --separator: rgba(60, 60, 67, 0.29);
+    --opaque-separator: #C6C6C8;
+
     --system-blue: #007AFF;
     --system-green: #34C759;
     --system-red: #FF3B30;
-    --system-pink: #FF2D55;
     --system-orange: #FF9500;
+    --system-pink: #FF2D55;
     --system-purple: #AF52DE;
-    
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.5);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-    --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.8);
-    --card-glass-bg: rgba(28, 28, 30, 0.75); 
+    --system-teal: #30B0C7;
 
-    --spring: cubic-bezier(0.16, 1, 0.3, 1);
+    /* Liquid Glass 2.0 Material Tokens (Control Layer Only) */
+    --glass-regular-bg: rgba(255, 255, 255, 0.72);
+    --glass-clear-bg: rgba(255, 255, 255, 0.28);
+    --glass-dark-rim: rgba(0, 0, 0, 0.14);
+    --glass-specular-top: rgba(255, 255, 255, 0.92);
+    --glass-specular-bottom: rgba(255, 255, 255, 0.35);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.05);
+    --glass-touch-glow: rgba(255, 255, 255, 0.65);
+
+    /* Dynamic Type Scale (SF Pro) */
+    --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    --type-large-title: 700 34px/41px var(--font-family);
+    --type-title1: 700 28px/34px var(--font-family);
+    --type-title2: 700 22px/28px var(--font-family);
+    --type-title3: 600 20px/25px var(--font-family);
+    --type-headline: 600 17px/22px var(--font-family);
+    --type-body: 400 17px/22px var(--font-family);
+    --type-callout: 400 16px/21px var(--font-family);
+    --type-subheadline: 400 15px/20px var(--font-family);
+    --type-footnote: 400 13px/18px var(--font-family);
+    --type-caption1: 400 12px/16px var(--font-family);
+    --type-caption2: 500 11px/13px var(--font-family);
+
+    /* Motion Curves */
+    --spring-default: cubic-bezier(0.22, 1, 0.36, 1);
+    --spring-interactive: cubic-bezier(0.2, 0.9, 0.3, 1.15);
+    --transition-page: 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* Concentric Geometry Tokens */
+    --radius-sheet: 28px;
+    --radius-grouped: 12px;
+    --radius-card: 16px;
+    --radius-tabbar: 34px;
+    --radius-tab-item: 28px; /* 34px outer - 6px padding */
+    --radius-capsule: 9999px;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
       --system-background: #000000;
+      --secondary-system-background: #1C1C1E;
+      --tertiary-system-background: #2C2C2E;
+      --system-grouped-background: #000000;
       --secondary-system-grouped-background: #1C1C1E;
       --tertiary-system-grouped-background: #2C2C2E;
+
       --label: #FFFFFF;
       --secondary-label: rgba(235, 235, 245, 0.6);
+      --tertiary-label: rgba(235, 235, 245, 0.3);
       --separator: rgba(84, 84, 88, 0.6);
+      --opaque-separator: #38383A;
+
+      --system-blue: #0A84FF;
       --system-green: #30D158;
       --system-red: #FF453A;
-      
-      --glass-bg: rgba(30, 30, 30, 0.6);
-      --glass-border: rgba(255, 255, 255, 0.15);
-      --glass-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.2);
-      --card-glass-bg: rgba(44, 44, 46, 0.75);
+      --system-orange: #FF9F0A;
+      --system-pink: #FF375F;
+      --system-purple: #BF5AF2;
+      --system-teal: #40CBE0;
+
+      /* Liquid Glass 2.0 Dark Mode Adaptation */
+      --glass-regular-bg: rgba(44, 44, 46, 0.68);
+      --glass-clear-bg: rgba(28, 28, 30, 0.36);
+      --glass-dark-rim: rgba(0, 0, 0, 0.55);
+      --glass-specular-top: rgba(255, 255, 255, 0.28);
+      --glass-specular-bottom: rgba(255, 255, 255, 0.08);
+      --glass-shadow: 0 10px 36px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+      --glass-touch-glow: rgba(255, 255, 255, 0.24);
     }
   }
 
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* Accessibility: Reduced Transparency */
+  @media (prefers-reduced-transparency: reduce) {
+    :root {
+      --glass-regular-bg: var(--secondary-system-background);
+      --glass-clear-bg: var(--secondary-system-background);
+      --glass-dark-rim: var(--opaque-separator);
+    }
+    .liquid-glass, .liquid-glass-clear {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+  }
+
+  /* Accessibility: Increased Contrast (accessibilityShowBorders) */
+  @media (prefers-contrast: more) {
+    .liquid-glass, .liquid-glass-clear, .btn-glass, .btn-glass-prominent {
+      outline: 1.5px solid var(--label);
+    }
+  }
+
+  /* Accessibility: Reduce Motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
 
   html, body {
-    margin: 0; padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-    background-color: var(--system-background);
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-family);
+    font: var(--type-body);
+    background-color: var(--system-grouped-background);
     color: var(--label);
-    width: 100vw; height: 100vh;
-    position: fixed; top: 0; left: 0;
-    overflow: hidden; overscroll-behavior: none;
-    user-select: none; -webkit-user-select: none;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* =========================================
-     Base UI
-     ========================================= */
-  .glass-regular {
-    background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(200%); -webkit-backdrop-filter: blur(24px) saturate(200%);
-    border: 0.5px solid var(--glass-border);
-    box-shadow: var(--glass-shadow), var(--glass-highlight);
-    border-radius: 999px; transition: transform 0.2s var(--spring);
+  /* ==========================================================================
+     SF Symbols 8 Rendering System
+     ========================================================================== */
+  .sf-symbol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: inherit;
+  }
+  .sf-symbol svg {
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* Weight: .regular for tabs (25pt) */
+  .sf-tab { width: 25px; height: 25px; }
+  .sf-tab svg { stroke-width: 1.75; }
+  /* Weight: .regular/.medium for lists (20pt) */
+  .sf-list { width: 20px; height: 20px; }
+  .sf-list svg { stroke-width: 1.85; }
+  /* Weight: .semibold for buttons & standalone (24-28pt) */
+  .sf-btn { width: 24px; height: 24px; }
+  .sf-btn svg { stroke-width: 2.15; }
+  .sf-standalone { width: 28px; height: 28px; }
+  .sf-standalone svg { stroke-width: 2.1; }
+  .sf-inline { width: 17px; height: 17px; }
+  .sf-inline svg { stroke-width: 2.1; }
+
+  /* ==========================================================================
+     Liquid Glass 2.0 Surface System (Navigation & Floating Controls ONLY)
+     ========================================================================== */
+  .liquid-glass {
+    position: relative;
+    background: var(--glass-regular-bg);
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    box-shadow:
+      0 0 0 0.5px var(--glass-dark-rim),
+      var(--glass-shadow),
+      inset 0 1px 0.5px var(--glass-specular-top),
+      inset 0 -0.5px 0.5px var(--glass-specular-bottom);
+  }
+
+  .liquid-glass-clear {
+    position: relative;
+    background: var(--glass-clear-bg);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.25),
+      0 6px 24px rgba(0, 0, 0, 0.28),
+      inset 0 1px 0.5px rgba(255, 255, 255, 0.45);
+  }
+
+  /* .interactive() behavior: spring scale, bounce, shimmer & touch-point illumination */
+  .interactive-glass {
+    overflow: hidden;
+    transition: transform 0.35s var(--spring-interactive), box-shadow 0.35s var(--spring-default);
     touch-action: manipulation;
+    cursor: pointer;
   }
-  .glass-regular:active { transform: scale(0.96); }
+  .interactive-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      circle 76px at var(--gx, 50%) var(--gy, 50%),
+      var(--glass-touch-glow) 0%,
+      transparent 75%
+    );
+    transition: opacity 0.28s ease;
+    z-index: 1;
+  }
+  .interactive-glass.is-pressed {
+    transform: scale(0.95);
+  }
+  .interactive-glass.is-pressed::before {
+    opacity: 1;
+  }
 
+  /* Native Glass Button Styles: .glass & .glassProminent */
+  .btn-glass {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius-capsule);
+    font: var(--type-headline);
+    color: var(--system-blue);
+    background: var(--glass-regular-bg);
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    box-shadow:
+      0 0 0 0.5px var(--glass-dark-rim),
+      0 4px 16px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0.5px var(--glass-specular-top);
+  }
+
+  .btn-glass-prominent {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 50px;
+    padding: 14px 20px;
+    border: none;
+    border-radius: var(--radius-capsule);
+    font: var(--type-headline);
+    color: #FFFFFF;
+    background: color-mix(in srgb, var(--system-blue) 88%, transparent);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 0 0 0.5px rgba(0, 0, 0, 0.18),
+      0 8px 24px color-mix(in srgb, var(--system-blue) 35%, transparent),
+      inset 0 1px 0.75px rgba(255, 255, 255, 0.55);
+  }
+
+  .btn-glass-prominent.pink-accent {
+    background: color-mix(in srgb, var(--system-pink) 88%, transparent);
+    box-shadow:
+      0 0 0 0.5px rgba(0, 0, 0, 0.18),
+      0 8px 24px color-mix(in srgb, var(--system-pink) 35%, transparent),
+      inset 0 1px 0.75px rgba(255, 255, 255, 0.55);
+  }
+
+  /* ==========================================================================
+     NavigationStack & TabView Architecture
+     ========================================================================== */
   .view-container {
-    position: absolute; inset: 0; padding-bottom: 100px;
-    overflow-y: auto; overflow-x: hidden;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.3s var(--spring); z-index: 1;
+    position: absolute;
+    inset: 0;
+    background-color: var(--system-grouped-background);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+    opacity: 0;
+    transform: translateX(12px);
+    pointer-events: none;
+    transition: opacity var(--transition-page), transform var(--transition-page);
+    z-index: 1;
   }
-  .view-container.active { opacity: 1; pointer-events: auto; z-index: 2; }
-
-  /* 綠色微光提示 */
-  #pulse-green {
-    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
-    box-shadow: inset 0 0 100px 20px rgba(52, 199, 89, 0.4);
-    opacity: 0; transition: opacity 0.5s;
+  .view-container.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+    z-index: 2;
   }
-  .pulse-on { opacity: 1 !important; animation: pulseAnim 1s infinite alternate; }
-  @keyframes pulseAnim { from { opacity: 0.3; } to { opacity: 1; } }
 
-  /* =========================================
-     Map & Bottom Sheet
-     ========================================= */
+  /* Responsive iPad / Desktop Adaptive Column inside NavigationStack */
+  .nav-stack-content {
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  /* Collapsible iOS Navigation Bar (largeTitle -> inline on scroll) */
+  .ios-nav-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: calc(44px + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+    padding-left: 16px;
+    padding-right: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transition: background 0.25s ease, box-shadow 0.25s ease, backdrop-filter 0.25s ease;
+  }
+  .ios-nav-bar.scrolled {
+    pointer-events: auto;
+    background: var(--glass-regular-bg);
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    box-shadow: 0 0.5px 0 var(--separator);
+  }
+  .ios-nav-inline-title {
+    font: var(--type-headline);
+    color: var(--label);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .ios-nav-bar.scrolled .ios-nav-inline-title {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .ios-large-title-wrap {
+    padding: 4px 16px 12px 16px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .ios-large-title {
+    margin: 0;
+    font: var(--type-large-title);
+    letter-spacing: -0.4px;
+    color: var(--label);
+  }
+  .ios-large-subtitle {
+    margin: 4px 0 0 0;
+    font: var(--type-subheadline);
+    color: var(--secondary-label);
+  }
+
+  /* Native .searchable Capsule Bar */
+  .searchable-wrap {
+    padding: 0 16px 12px 16px;
+  }
+  .searchable-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: var(--radius-capsule);
+    background: color-mix(in srgb, var(--label) 7%, transparent);
+    color: var(--secondary-label);
+  }
+  .searchable-field input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font: var(--type-body);
+    color: var(--label);
+    outline: none;
+    min-width: 0;
+  }
+  .searchable-field input::placeholder {
+    color: var(--secondary-label);
+  }
+  .search-clear-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: var(--secondary-label);
+    color: var(--secondary-system-grouped-background);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .search-clear-btn.visible {
+    display: inline-flex;
+  }
+
+  /* ==========================================================================
+     Tab 1: Map View (Strict Frame Lock + Bar-Only Drag Sheet)
+     ========================================================================== */
+  #view-map {
+    padding-bottom: 0 !important;
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+    touch-action: none;
+    transform: none !important;
+  }
+
   #map {
-    width: 100%; height: 100%; position: absolute; inset: 0; z-index: 0;
-    transition: transform 0.4s var(--spring), border-radius 0.4s var(--spring);
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    transition: transform 0.4s var(--spring-default), border-radius 0.4s var(--spring-default);
   }
 
-  .nav-bar-title {
-    font-size: 22px; font-weight: 700; text-align: center;
-    padding: 12px 24px; margin: 20px auto 0 auto; width: fit-content;
-    position: absolute; left: 0; right: 0; z-index: 5;
+  /* Floating Top Controls above Map (Liquid Glass .regular) */
+  .map-floating-header {
+    position: absolute;
+    top: calc(14px + env(safe-area-inset-top));
+    left: 16px;
+    right: 16px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .map-title-pill {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 18px;
+    border-radius: var(--radius-capsule);
+    font: var(--type-headline);
+    color: var(--label);
+  }
+  .map-locate-btn {
+    pointer-events: auto;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--system-blue);
   }
 
+  /* Bottom Sheet (Opaque Grouped Surface — NO Glass on Content!) */
   .bottom-sheet {
-    position: absolute; bottom: 0; left: 0; right: 0; width: 100%; height: 70vh;
-    background: var(--secondary-system-grouped-background);
-    border-radius: 24px 24px 0 0;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.1);
-    transform: translateY(calc(100% - 145px));
-    transition: transform 0.4s var(--spring);
-    z-index: 10; display: flex; flex-direction: column;
-    touch-action: auto; 
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 680px;
+    height: 72dvh;
+    background: var(--system-grouped-background);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.14), 0 0 0 0.5px var(--separator);
+    transform: translateY(calc(100% - 144px));
+    transition: transform 0.4s var(--spring-default);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
-  .bottom-sheet.expanded { transform: translateY(0); }
-  .bottom-sheet.expanded ~ #map { transform: scale(0.95); border-radius: 24px; }
+  .bottom-sheet.expanded {
+    transform: translateY(0);
+  }
+  .bottom-sheet.expanded ~ #map {
+    transform: scale(0.96);
+    border-radius: var(--radius-sheet);
+  }
 
+  /* Drag Handle Area (Bar-Only Drag Enforcement) */
   .sheet-drag-area {
-    width: 100%; padding: 12px 0 16px 0;
-    display: flex; flex-direction: column; align-items: center;
-    cursor: grab; flex-shrink: 0;
+    width: 100%;
+    padding: 10px 16px 14px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: grab;
+    flex-shrink: 0;
+    touch-action: none;
   }
-  
-  .sheet-grabber { width: 36px; height: 5px; background: var(--separator); border-radius: 2.5px; margin-bottom: 12px; }
-  .sheet-title { font-size: 22px; font-weight: 700; margin: 0; padding-left: 16px; align-self: flex-start; }
+  .sheet-drag-area:active {
+    cursor: grabbing;
+  }
+  .sheet-grabber {
+    width: 36px;
+    height: 5px;
+    background: var(--tertiary-label);
+    border-radius: var(--radius-capsule);
+    margin-bottom: 12px;
+  }
+  .sheet-header-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sheet-title {
+    font: var(--type-title2);
+    margin: 0;
+    color: var(--label);
+  }
+  .sheet-hint-badge {
+    font: var(--type-caption1);
+    color: var(--secondary-label);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
 
-  .sheet-content { flex: 1; padding: 0 16px 100px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+  /* Hidden until pulled up via the bar */
+  .sheet-content {
+    flex: 1;
+    padding: 0 0 calc(108px + env(safe-area-inset-bottom)) 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+  }
+  .bottom-sheet.expanded .sheet-content {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
 
-  /* =========================================
-     Lists & Forms
-     ========================================= */
-  .list-header { font-size: 13px; color: var(--secondary-label); text-transform: uppercase; padding: 16px 16px 8px 16px; font-weight: 500; }
-  .inset-grouped-list { background: var(--secondary-system-grouped-background); border-radius: 12px; overflow: hidden; margin: 0 16px; }
+  /* ==========================================================================
+     Inset Grouped Lists & Forms (Opaque Content Layer — NO Glass)
+     ========================================================================== */
+  .section-header {
+    font: var(--type-footnote);
+    color: var(--secondary-label);
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    padding: 20px 32px 8px 32px;
+    margin: 0;
+  }
+
+  .inset-grouped-list {
+    background: var(--secondary-system-grouped-background);
+    border-radius: var(--radius-grouped);
+    margin: 0 16px;
+    overflow: hidden;
+  }
+
   .list-row {
-    display: flex; align-items: center; justify-content: space-between;
-    min-height: 44px; padding: 12px 16px; background: var(--secondary-system-grouped-background);
-    border-bottom: 0.5px solid var(--separator); margin-left: 16px; padding-left: 0; cursor: pointer;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 48px;
+    padding: 11px 16px;
+    background: var(--secondary-system-grouped-background);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
   }
-  .list-row:active { background: var(--tertiary-system-grouped-background); }
-  .list-row:last-child { border-bottom: none; }
-  .row-content { display: flex; flex-direction: column; gap: 4px; }
-  .row-title { font-size: 17px; color: var(--label); font-weight: 500; }
-  .row-subtitle { font-size: 13px; color: var(--secondary-label); }
-  .row-value { font-size: 17px; color: var(--secondary-label); display: flex; align-items: center; gap: 8px; }
-
-  .btn {
-    display: flex; align-items: center; justify-content: center; width: 100%;
-    padding: 16px; font-size: 17px; font-weight: 600; border: none; cursor: pointer;
-    margin-top: 16px; border-radius: 12px; transition: transform 0.2s;
+  .list-row:active {
+    background: var(--tertiary-system-grouped-background);
   }
-  .btn:active { transform: scale(0.96); }
-  .glass-prominent { background: var(--system-blue); color: #FFF; box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3); }
+  /* 0.5pt inset separator aligned to text leading edge */
+  .list-row:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 0;
+    bottom: 0;
+    height: 0.5px;
+    background: var(--separator);
+  }
+  .list-row.has-leading-icon:not(:last-child)::after {
+    left: 56px;
+  }
 
-  /* =========================================
-     Floating Tab Bar
-     ========================================= */
+  .row-leading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex: 1;
+  }
+  .row-icon-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #FFFFFF;
+  }
+  .row-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+  .row-title {
+    font: var(--type-body);
+    color: var(--label);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row-subtitle {
+    font: var(--type-footnote);
+    color: var(--secondary-label);
+  }
+  .row-trailing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font: var(--type-body);
+    color: var(--secondary-label);
+    flex-shrink: 0;
+    margin-left: 12px;
+  }
+  .chevron-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--tertiary-label);
+  }
+
+  .ios-text-input {
+    width: 100%;
+    min-height: 44px;
+    border: none;
+    background: transparent;
+    font: var(--type-body);
+    color: var(--label);
+    outline: none;
+    padding: 0;
+  }
+
+  /* Filter Trait Pills (Opaque Grouped Cells) */
+  .traits-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 16px;
+  }
+  .trait-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: var(--radius-capsule);
+    background: var(--secondary-system-grouped-background);
+    color: var(--label);
+    font: var(--type-subheadline);
+    font-weight: 500;
+    border: 0.5px solid var(--separator);
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s var(--spring-interactive);
+  }
+  .trait-pill:active {
+    transform: scale(0.95);
+  }
+  .trait-pill.selected {
+    background: color-mix(in srgb, var(--system-blue) 14%, var(--secondary-system-grouped-background));
+    color: var(--system-blue);
+    border-color: var(--system-blue);
+  }
+
+  /* ==========================================================================
+     Floating Liquid Glass TabView Bar
+     ========================================================================== */
   .tab-bar {
-    position: fixed; bottom: 24px; left: 0; right: 0; margin: 0 auto;
-    width: max-content; display: flex; gap: 4px; padding: 6px 12px;
-    z-index: 1000; border-radius: 999px; touch-action: none;
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    border-radius: var(--radius-tabbar);
+    z-index: 1000;
+    touch-action: none;
   }
-  .tab-item {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 8px 16px; min-width: 72px; border-radius: 999px; cursor: pointer;
-    color: var(--secondary-label); transition: color 0.2s;
-  }
-  .tab-item.active { color: var(--system-blue); }
-  .tab-icon { font-size: 24px; margin-bottom: 2px; }
-  .tab-label { font-size: 10px; font-weight: 500; }
 
-  /* =========================================
-     Restaurant Detail View
-     ========================================= */
-  .detail-backdrop {
-    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.1);
-    z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s;
+  .tab-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 18px;
+    min-width: 72px;
+    min-height: 52px;
+    border-radius: var(--radius-tab-item);
+    cursor: pointer;
+    color: var(--secondary-label);
+    transition: color 0.2s ease, background-color 0.2s ease, transform 0.3s var(--spring-interactive);
   }
-  .detail-backdrop.active { opacity: 1; pointer-events: auto; }
+  .tab-item.active {
+    color: var(--system-blue);
+    background: color-mix(in srgb, var(--label) 7%, transparent);
+  }
+  .tab-label {
+    font: var(--type-caption2);
+    margin-top: 2px;
+    letter-spacing: 0.1px;
+  }
+
+  /* ==========================================================================
+     Restaurant Detail Sheet (Modal Sheet with Grabber & .medium/.large Detents)
+     ========================================================================== */
+  .detail-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.28);
+    z-index: 1999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease;
+  }
+  .detail-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
 
   #detail-view {
-    position: fixed; left: 0; right: 0; bottom: 0; height: 100vh;
-    z-index: 2000; background: var(--system-background);
-    border-radius: 24px 24px 0 0; box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
-    transform: translateY(100%); transition: transform 0.4s var(--spring);
-    display: flex; flex-direction: column; overflow: hidden;
-    opacity: 0; pointer-events: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 680px;
+    height: 100dvh;
+    z-index: 2000;
+    background: var(--system-grouped-background);
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.18);
+    transform: translateY(100%);
+    transition: transform 0.4s var(--spring-default);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
-  
-  #detail-view.active { transform: translateY(40vh); opacity: 1; pointer-events: auto; }
-  #detail-view.expanded { transform: translateY(0); }
+  #detail-view.active {
+    transform: translateY(38dvh);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #detail-view.expanded {
+    transform: translateY(0);
+  }
 
   .detail-drag-area {
-    width: 100%; padding: 10px 0 16px 0;
-    display: flex; justify-content: center;
-    flex-shrink: 0; touch-action: none; cursor: grab;
+    width: 100%;
+    padding: 10px 0 8px 0;
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+    touch-action: none;
+    cursor: grab;
   }
-  .modal-grabber { width: 36px; height: 5px; background: var(--separator); border-radius: 2.5px; }
+  .modal-grabber {
+    width: 36px;
+    height: 5px;
+    background: var(--tertiary-label);
+    border-radius: var(--radius-capsule);
+  }
 
   .detail-nav-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px 16px 20px; flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 12px 16px;
+    flex-shrink: 0;
   }
-  
-  .nav-btn-icon {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: var(--tertiary-system-grouped-background);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; cursor: pointer; font-weight: 600;
+  .nav-circle-glass-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 50%;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--label);
   }
-  
-  .nav-title-text { font-size: 17px; font-weight: 600; }
+  .nav-title-text {
+    font: var(--type-headline);
+    color: var(--label);
+  }
 
   .detail-scroll-area {
-    flex: 1; overflow-y: auto; overflow-x: hidden;
-    -webkit-overflow-scrolling: touch; padding-bottom: 100px; overscroll-behavior-y: contain;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(108px + env(safe-area-inset-bottom));
+    overscroll-behavior-y: contain;
   }
 
-  .detail-header { padding: 0 20px 20px 20px; }
-  .detail-title { font-size: 34px; font-weight: 700; margin: 0 0 12px 0; line-height: 1.1; }
-  .tag-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .tag { background: var(--tertiary-system-grouped-background); color: var(--label); font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px; }
+  .detail-header {
+    padding: 4px 16px 16px 16px;
+  }
+  .detail-title {
+    font: var(--type-title1);
+    margin: 0 0 10px 0;
+    color: var(--label);
+  }
+  .tag-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--secondary-system-grouped-background);
+    color: var(--secondary-label);
+    font: var(--type-footnote);
+    font-weight: 500;
+    padding: 5px 11px;
+    border-radius: var(--radius-capsule);
+  }
 
-  .info-cards { display: flex; gap: 12px; padding: 0 20px; margin-bottom: 20px; }
+  /* Opaque Content Summary Cards (NO Liquid Glass on Content!) */
+  .info-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 0 16px;
+    margin-bottom: 20px;
+  }
   .info-card {
-    flex: 1; background: var(--card-glass-bg);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-    border: 0.5px solid var(--glass-border);
-    border-radius: 16px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    background: var(--secondary-system-grouped-background);
+    border-radius: var(--radius-card);
+    padding: 14px 16px;
   }
-  .info-card .val { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
-  .info-card .sub { font-size: 13px; color: var(--secondary-label); }
-
-  .action-row { display: flex; justify-content: space-around; padding: 0 20px; margin-bottom: 24px; }
-  .action-btn-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
-  .action-btn {
-    width: 60px; height: 60px; border-radius: 50%;
-    background: var(--tertiary-system-grouped-background);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 24px; color: var(--system-blue); transition: transform 0.2s;
+  .info-card .val {
+    font: var(--type-title3);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  .action-btn:active { transform: scale(0.92); }
-  .action-label { font-size: 12px; color: var(--label); }
+  .info-card .sub {
+    font: var(--type-footnote);
+    color: var(--secondary-label);
+  }
 
+  /* Action Row using Native Secondary Glass Buttons */
+  .action-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    padding: 0 16px;
+    margin-bottom: 20px;
+  }
+  .action-btn-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .action-glass-circle {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .action-label {
+    font: var(--type-caption1);
+    font-weight: 500;
+    color: var(--label);
+  }
+
+  /* Native iOS Segmented Picker */
   .segmented-control {
-    display: flex; background: var(--tertiary-system-grouped-background);
-    border-radius: 999px; padding: 4px; margin: 0 20px 20px 20px;
+    display: flex;
+    background: color-mix(in srgb, var(--label) 8%, transparent);
+    border-radius: var(--radius-capsule);
+    padding: 3px;
+    margin: 0 16px 16px 16px;
   }
   .seg-item {
-    flex: 1; text-align: center; padding: 8px 0; border-radius: 999px;
-    font-size: 15px; font-weight: 600; color: var(--secondary-label);
-    cursor: pointer; transition: all 0.3s;
+    flex: 1;
+    text-align: center;
+    padding: 7px 0;
+    border-radius: var(--radius-capsule);
+    font: var(--type-subheadline);
+    font-weight: 600;
+    color: var(--secondary-label);
+    cursor: pointer;
+    transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
   }
-  .seg-item.active { background: var(--system-background); color: var(--label); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .seg-item.active {
+    background: var(--secondary-system-grouped-background);
+    color: var(--label);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
 
-  .detail-body { padding: 0 20px; }
+  /* Rating Options inside Opaque Grouped Card */
+  .rating-card {
+    background: var(--secondary-system-grouped-background);
+    border-radius: var(--radius-grouped);
+    margin: 0 16px;
+    padding: 16px;
+  }
+  .rating-group + .rating-group {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 0.5px solid var(--separator);
+  }
+  .rating-group-title {
+    font: var(--type-subheadline);
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--label);
+  }
+  .emoji-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+  .emoji-btn {
+    min-height: 46px;
+    font-size: 24px;
+    border-radius: var(--radius-grouped);
+    border: 1.5px solid transparent;
+    background: var(--tertiary-system-grouped-background);
+    cursor: pointer;
+    transition: transform 0.2s var(--spring-interactive), border-color 0.2s ease, background-color 0.2s ease;
+  }
+  .emoji-btn:active {
+    transform: scale(0.92);
+  }
+  .emoji-btn.on {
+    border-color: var(--system-blue);
+    background: color-mix(in srgb, var(--system-blue) 12%, var(--secondary-system-grouped-background));
+  }
 
   .floating-cta {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    padding: 16px 20px calc(24px + env(safe-area-inset-bottom)) 20px;
-    background: linear-gradient(to top, var(--system-background) 80%, transparent);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px calc(20px + env(safe-area-inset-bottom)) 16px;
+    background: linear-gradient(to top, var(--system-grouped-background) 78%, transparent);
     z-index: 10;
   }
-  .cta-btn {
-    width: 100%; padding: 16px; border-radius: 16px;
-    background: var(--system-blue); color: #FFF;
-    font-size: 17px; font-weight: 600; border: none; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
-  }
 
-  .emoji-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; padding-bottom: 8px; }
-  .emoji-btn {
-    font-size: 32px; padding: 12px; border-radius: 12px;
-    border: 2px solid transparent; background: var(--tertiary-system-grouped-background);
-    cursor: pointer; transition: transform 0.2s, border-color 0.2s;
-  }
-  .emoji-btn.on { border-color: var(--system-blue); transform: scale(1.1); background: var(--system-background); }
-
-  /* =========================================
-     Overlays (AR, Double-Way Comm)
-     ========================================= */
+  /* ==========================================================================
+     AR Scanner & Two-Way Communication Overlays (Liquid Glass .clear over media)
+     ========================================================================== */
   #ar-modal {
-    position: fixed; inset: 0; z-index: 3000;
-    background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(0, 0, 0, 0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
   }
-  #ar-modal.active { opacity: 1; pointer-events: auto; }
+  #ar-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .ar-top-bar {
+    position: absolute;
+    top: calc(16px + env(safe-area-inset-top));
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
   .ar-scan-box {
-    width: 80%; height: 50%; border: 2px dashed rgba(255,255,255,0.5);
-    border-radius: 20px; position: relative;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%;
+    max-width: 340px;
+    aspect-ratio: 4 / 3;
+    border: 2px dashed rgba(255, 255, 255, 0.55);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #FFFFFF;
   }
   .ar-result {
-    background: rgba(255,255,255,0.95); color: #000;
-    padding: 20px; border-radius: 16px; font-size: 16px;
-    margin-top: 20px; text-align: center; width: 80%;
-    display: none; animation: popIn 0.4s var(--spring);
+    background: var(--secondary-system-grouped-background);
+    color: var(--label);
+    padding: 20px;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+    display: none;
+    animation: popIn 0.35s var(--spring-default);
   }
-  @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  @keyframes popIn {
+    0% { transform: scale(0.92); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
 
-  /* 雙向溝通 Modal (語音 + 手語) */
   #comm-modal {
-    position: fixed; inset: 0; z-index: 3000;
-    background: rgba(0,0,0,0.95); backdrop-filter: blur(15px);
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-    padding: 40px 20px 20px 20px;
-    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: #000000;
+    display: flex;
+    flex-direction: column;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)) 16px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
   }
-  #comm-modal.active { opacity: 1; pointer-events: auto; }
-  
+  #comm-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
   .comm-header {
-    color: #fff; font-size: 18px; font-weight: 700; margin-bottom: 20px;
-    display: flex; justify-content: space-between; width: 100%; align-items: center;
+    color: #FFFFFF;
+    font: var(--type-headline);
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
-  .comm-close { background: rgba(255,255,255,0.2); border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; }
-
-  /* 手語識別區 (用 object-fit: contain 避免裁切) */
   .camera-container {
-    position: relative; width: 100%; height: 35vh;
-    background: #111; border-radius: 20px; overflow: hidden;
-    border: 2px solid rgba(255,255,255,0.2);
-    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+    height: 36dvh;
+    background: #1C1C1E;
+    border-radius: 24px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
-  .camera-container video { 
-    position: absolute; width: 100%; height: 100%; 
-    object-fit: contain; 
-    transform: scaleX(-1); 
+  .camera-container video,
+  .camera-container canvas {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transform: scaleX(-1);
   }
-  .camera-container canvas { 
-    position: absolute; width: 100%; height: 100%; 
-    object-fit: contain; 
-    transform: scaleX(-1); 
+  .gesture-pill {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    padding: 10px 16px;
+    border-radius: var(--radius-capsule);
+    color: #FFFFFF;
+    font: var(--type-title3);
+    text-align: center;
+    z-index: 3;
   }
-  
-  .gesture-result {
-    margin-top: 10px; font-size: 32px; font-weight: 800; color: var(--system-green);
-    height: 50px; text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    display: flex; align-items: center; justify-content: center; width: 100%;
-  }
-
-  /* 語音字幕區 */
   .speech-container {
-    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 20px; padding: 15px; width: 100%; margin-top: 15px;
-    flex: 1; display: flex; flex-direction: column;
+    width: 100%;
+    max-width: 680px;
+    margin: 14px auto 0 auto;
+    background: #1C1C1E;
+    border-radius: 20px;
+    padding: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
-  .speech-label { color: var(--system-blue); font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .speech-label {
+    color: #0A84FF;
+    font: var(--type-footnote);
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
   .speech-text {
-    color: #fff; font-size: 24px; font-weight: 600; line-height: 1.4;
-    display: flex; align-items: flex-start; flex: 1;
+    color: #FFFFFF;
+    font: var(--type-title2);
+    flex: 1;
   }
 
-  /* 煙花 */
-  .fireworks-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2500; }
-  .firework-particle { position: absolute; font-size: 40px; animation: fly 1.4s var(--spring) forwards; }
-  @keyframes fly { 0% { transform: translate(0,0) scale(.5); opacity: 1; } 100% { transform: translate(var(--x), var(--y)) scale(1.5); opacity: 0; } }
+  /* ==========================================================================
+     Native iOS Notification Banner & Visual Alert Pulse
+     ========================================================================== */
+  #pulse-green {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    box-shadow: inset 0 0 90px 18px color-mix(in srgb, var(--system-green) 45%, transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .pulse-on {
+    opacity: 1 !important;
+    animation: pulseAnim 0.9s infinite alternate;
+  }
+  @keyframes pulseAnim {
+    from { opacity: 0.35; }
+    to { opacity: 1; }
+  }
+
+  .ios-banner {
+    position: fixed;
+    top: calc(12px + env(safe-area-inset-top));
+    left: 16px;
+    right: 16px;
+    max-width: 440px;
+    margin: 0 auto;
+    padding: 12px 16px;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 9500;
+    transform: translateY(-140%);
+    opacity: 0;
+    transition: transform 0.4s var(--spring-default), opacity 0.3s ease;
+    pointer-events: none;
+  }
+  .ios-banner.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .ios-banner-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--system-green);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .ios-banner-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .ios-banner-title {
+    font: var(--type-subheadline);
+    font-weight: 600;
+    color: var(--label);
+  }
+  .ios-banner-msg {
+    font: var(--type-footnote);
+    color: var(--secondary-label);
+  }
+
+  /* Celebratory Visual Particles */
+  .fireworks-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 4000;
+  }
+  .firework-particle {
+    position: absolute;
+    font-size: 32px;
+    animation: fly 1.3s var(--spring-default) forwards;
+  }
+  @keyframes fly {
+    0% { transform: translate(0, 0) scale(0.5); opacity: 1; }
+    100% { transform: translate(var(--x), var(--y)) scale(1.35); opacity: 0; }
+  }
 </style>
 </head>
 <body>
 
   <div id="pulse-green"></div>
 
-  <!-- 1. MAP TAB -->
-  <div id="view-map" class="view-container active" style="padding-bottom: 0;">
-    <div id="map"></div>
-    <div class="nav-bar-title glass-regular">Silent Connect</div>
+  <!-- Native iOS Liquid Glass Notification Banner -->
+  <div class="ios-banner liquid-glass" id="iosBanner" role="status" aria-live="polite">
+    <div class="ios-banner-icon" id="bannerIcon"></div>
+    <div class="ios-banner-body">
+      <div class="ios-banner-title" id="bannerTitle">通知</div>
+      <div class="ios-banner-msg" id="bannerMsg">訊息內容</div>
+    </div>
+  </div>
 
-    <div class="bottom-sheet" id="rankSheet">
+  <!-- ========================================================================
+       TAB 1: MAP VIEW (Strict Frame Lock + Bar-Only Drag Sheet)
+       ======================================================================== -->
+  <main id="view-map" class="view-container active" aria-label="無障礙地圖">
+    <div id="map"></div>
+
+    <!-- Floating Liquid Glass Controls above Map -->
+    <header class="map-floating-header">
+      <div class="map-title-pill liquid-glass">
+        <span class="sf-symbol sf-inline" style="color: var(--system-blue);" data-sf="ear.badge.waveform"></span>
+        <span>Silent Connect</span>
+      </div>
+      <button class="map-locate-btn liquid-glass interactive-glass" onclick="resetMapCenter()" aria-label="重設地圖中心">
+        <span class="sf-symbol sf-btn" data-sf="location.fill"></span>
+      </button>
+    </header>
+
+    <!-- Bottom Sheet (Opaque Content Layer; Drag Bar to Reveal List) -->
+    <section class="bottom-sheet" id="rankSheet" aria-label="無障礙推薦榜">
       <div class="sheet-drag-area" id="sheetDragArea">
         <div class="sheet-grabber"></div>
-        <h2 class="sheet-title">無障礙推薦榜</h2>
+        <div class="sheet-header-row">
+          <h2 class="sheet-title">無障礙推薦榜</h2>
+          <span class="sheet-hint-badge" id="sheetHintBadge">
+            <span class="sf-symbol" style="width:14px;height:14px;" data-sf="chevron.up"></span>
+            <span>向上拉動查看</span>
+          </span>
+        </div>
       </div>
+
       <div class="sheet-content" id="sheetContent">
-        <div class="inset-grouped-list" id="rankList" style="margin-top: 8px;"></div>
+        <div class="searchable-wrap">
+          <div class="searchable-field">
+            <span class="sf-symbol" style="width:16px;height:16px;" data-sf="magnifyingglass"></span>
+            <input type="search" id="mapSearchInput" placeholder="搜尋餐廳、地區或無障礙標籤" oninput="filterRestaurants(this.value)" />
+            <button class="search-clear-btn" id="mapSearchClear" onclick="clearMapSearch()" aria-label="清除搜尋">✕</button>
+          </div>
+        </div>
+        <div class="inset-grouped-list" id="rankList"></div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 
-  <!-- 2. RECRUIT TAB -->
-  <div id="view-recruit" class="view-container">
-    <h1 style="padding: 24px 16px 8px 16px; margin:0; font-size: 34px; font-weight:700;">聽障招聘</h1>
-    <p style="padding: 0 16px 16px; color: var(--secondary-label); font-size: 15px; margin: 0;">系統自動配對無障礙工作崗位。</p>
-    <div class="form-section">
-      <div class="list-header">基本資料</div>
+  <!-- ========================================================================
+       TAB 2: RECRUIT TAB (NavigationStack + Collapsible Large Title)
+       ======================================================================== -->
+  <section id="view-recruit" class="view-container" onscroll="handleNavScroll(this, 'recruitNavBar')">
+    <div class="ios-nav-bar" id="recruitNavBar">
+      <span class="ios-nav-inline-title">聽障招聘</span>
+    </div>
+    <div class="nav-stack-content">
+      <div class="ios-large-title-wrap">
+        <h1 class="ios-large-title">聽障招聘</h1>
+        <p class="ios-large-subtitle">系統自動配對無障礙工作崗位</p>
+      </div>
+
+      <div class="searchable-wrap">
+        <div class="searchable-field">
+          <span class="sf-symbol" style="width:16px;height:16px;" data-sf="magnifyingglass"></span>
+          <input type="search" id="jobSearchInput" placeholder="搜尋職位或餐廳名稱" oninput="runMatching()" />
+        </div>
+      </div>
+
+      <h2 class="section-header">基本資料</h2>
       <div class="inset-grouped-list">
-        <div class="list-row" style="margin: 0; padding: 0 16px;">
-          <input type="text" class="input-field" id="seekerName" placeholder="輸入姓名" value="陳小姐" style="width:100%; padding:12px; border:none; background:transparent; color:var(--label); outline:none;">
+        <div class="list-row" style="cursor: text;">
+          <input type="text" class="ios-text-input" id="seekerName" placeholder="輸入求職者姓名" value="陳小姐" />
         </div>
       </div>
-    </div>
-    <div class="form-section">
-      <div class="list-header">擅長嘅工作特質</div>
-      <div class="chips-container" id="traitChips" style="display:flex; flex-wrap:wrap; gap:8px; margin:0 16px;"></div>
-    </div>
-    <div style="padding: 0 16px;">
-      <button class="btn glass-prominent" onclick="runMatching()">開始配對</button>
-    </div>
-    <div id="matchResults" style="padding: 16px;"></div>
-  </div>
 
-  <!-- 3. TIP TAB -->
-  <div id="view-tip" class="view-container">
-    <h1 style="padding: 24px 16px 8px 16px; margin:0; font-size: 34px; font-weight:700;">打賞員工</h1>
-    <div class="inset-grouped-list" style="margin-bottom: 24px;">
-      <div class="list-row" style="cursor: default;">
-        <div class="row-content">
-          <span class="row-title">阿明</span>
-          <span class="row-subtitle">聰鳴茶座 · 水吧</span>
+      <h2 class="section-header">擅長的工作特質</h2>
+      <div class="traits-grid" id="traitChips"></div>
+
+      <div style="padding: 20px 16px 4px 16px;">
+        <button class="btn-glass-prominent interactive-glass" onclick="runMatching()">
+          <span class="sf-symbol sf-btn" data-sf="sparkles"></span>
+          <span>開始智能配對</span>
+        </button>
+      </div>
+
+      <div id="matchResults"></div>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       TAB 3: TIP TAB (NavigationStack + Collapsible Large Title)
+       ======================================================================== -->
+  <section id="view-tip" class="view-container" onscroll="handleNavScroll(this, 'tipNavBar')">
+    <div class="ios-nav-bar" id="tipNavBar">
+      <span class="ios-nav-inline-title">打賞員工</span>
+    </div>
+    <div class="nav-stack-content">
+      <div class="ios-large-title-wrap">
+        <h1 class="ios-large-title">打賞員工</h1>
+        <p class="ios-large-subtitle">以視覺心意直接鼓勵前線聽障員工</p>
+      </div>
+
+      <h2 class="section-header">打賞對象</h2>
+      <div class="inset-grouped-list">
+        <div class="list-row has-leading-icon" style="cursor: default;">
+          <div class="row-leading">
+            <span class="row-icon-badge" style="background: var(--system-blue);">
+              <span class="sf-symbol sf-list" data-sf="person.fill"></span>
+            </span>
+            <div class="row-content">
+              <span class="row-title">阿明</span>
+              <span class="row-subtitle">聰鳴茶座 · 水吧</span>
+            </div>
+          </div>
+          <div class="row-trailing" style="color: var(--system-green); font-weight: 600;" id="staffTotal">HK$320</div>
         </div>
-        <div class="row-value" style="color: var(--system-green); font-weight: 600;" id="staffTotal">HK$320</div>
       </div>
-    </div>
-    <div class="list-header">選擇虛擬禮物</div>
-    <div class="inset-grouped-list" id="giftList"></div>
-    <div style="padding: 16px;">
-      <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--secondary-label); margin-bottom: 16px;">
-        <span>平台服務費 (5%)</span>
-        <span id="feeText">HK$0.00</span>
-      </div>
-      <button class="btn glass-prominent" style="background: var(--system-pink); box-shadow: 0 4px 16px rgba(255, 45, 85, 0.3);" onclick="sendTip()">送出打賞 🎆</button>
-    </div>
-  </div>
 
-  <!-- 4. B2B TAB (已補回) -->
-  <div id="view-b2b" class="view-container">
-    <h1 style="padding: 24px 16px 8px 16px; margin:0; font-size: 34px; font-weight:700;">餐廳後台</h1>
-    
-    <div class="inset-grouped-list" style="margin-bottom: 24px;">
-      <div class="list-row" style="cursor: default;">
-        <div class="row-content">
-          <span class="row-title">廣告與系統錢包</span>
-          <span class="row-subtitle">可用餘額</span>
+      <h2 class="section-header">選擇虛擬禮物</h2>
+      <div class="inset-grouped-list" id="giftList"></div>
+
+      <h2 class="section-header">費用明細</h2>
+      <div class="inset-grouped-list">
+        <div class="list-row" style="cursor: default;">
+          <span class="row-title">平台服務費 (5%)</span>
+          <span class="row-trailing" id="feeText">HK$1.00</span>
         </div>
-        <div class="row-value" id="walletBal" style="font-size: 20px; font-weight: 600; color: var(--label);">HK$10,000</div>
+      </div>
+
+      <div style="padding: 20px 16px;">
+        <button class="btn-glass-prominent pink-accent interactive-glass" onclick="sendTip()">
+          <span class="sf-symbol sf-btn" data-sf="heart.fill"></span>
+          <span>送出打賞</span>
+        </button>
       </div>
     </div>
+  </section>
 
-    <div class="list-header">月費訂閱 (Smart Alert + AR Menu)</div>
-    <div class="inset-grouped-list" style="margin-bottom: 24px;">
-      <div class="list-row" onclick="buyAd(150)">
-        <span class="row-title" style="color: var(--system-blue);">繳交今個月月費</span>
-        <span class="row-value">HK$150</span>
+  <!-- ========================================================================
+       TAB 4: B2B ADMIN TAB (NavigationStack + Collapsible Large Title)
+       ======================================================================== -->
+  <section id="view-b2b" class="view-container" onscroll="handleNavScroll(this, 'b2bNavBar')">
+    <div class="ios-nav-bar" id="b2bNavBar">
+      <span class="ios-nav-inline-title">餐廳後台</span>
+    </div>
+    <div class="nav-stack-content">
+      <div class="ios-large-title-wrap">
+        <h1 class="ios-large-title">餐廳後台</h1>
+        <p class="ios-large-subtitle">管理無障礙服務訂閱與聽障人才招聘</p>
       </div>
-    </div>
 
-    <div class="list-header">加值服務 (Budget & Design)</div>
-    <div class="inset-grouped-list" style="margin-bottom: 24px;">
-      <div class="list-row" onclick="buyAd(1500)">
-        <span class="row-title" style="color: var(--system-blue);">訂製專屬 3D 吉祥物</span>
-        <span class="row-value">HK$1,500</span>
+      <h2 class="section-header">系統錢包</h2>
+      <div class="inset-grouped-list">
+        <div class="list-row has-leading-icon" style="cursor: default;">
+          <div class="row-leading">
+            <span class="row-icon-badge" style="background: var(--system-green);">
+              <span class="sf-symbol sf-list" data-sf="creditcard.fill"></span>
+            </span>
+            <div class="row-content">
+              <span class="row-title">廣告與系統錢包</span>
+              <span class="row-subtitle">可用餘額</span>
+            </div>
+          </div>
+          <div class="row-trailing" id="walletBal" style="font-weight: 600; color: var(--label);">HK$10,000</div>
+        </div>
       </div>
-    </div>
 
-    <div class="list-header">招聘配對 (Recruitment Fee)</div>
-    <div class="inset-grouped-list" id="b2bTalents"></div>
-  </div>
+      <h2 class="section-header">月費訂閱 (Smart Alert + AR Menu)</h2>
+      <div class="inset-grouped-list">
+        <div class="list-row has-leading-icon" onclick="buyAd(150, '月費訂閱')">
+          <div class="row-leading">
+            <span class="row-icon-badge" style="background: var(--system-blue);">
+              <span class="sf-symbol sf-list" data-sf="bell.badge.fill"></span>
+            </span>
+            <span class="row-title" style="color: var(--system-blue);">繳交本月服務月費</span>
+          </div>
+          <div class="row-trailing">
+            <span>HK$150</span>
+            <span class="sf-symbol chevron-icon" data-sf="chevron.right"></span>
+          </div>
+        </div>
+      </div>
 
-  <!-- Tab Bar (已補回後台) -->
-  <nav class="tab-bar glass-regular">
-    <div class="tab-item active" data-target="view-map" onclick="switchTab(this)">
-      <span class="tab-icon">🗺️</span><span class="tab-label">地圖</span>
+      <h2 class="section-header">加值服務 (Budget & Design)</h2>
+      <div class="inset-grouped-list">
+        <div class="list-row has-leading-icon" onclick="buyAd(1500, '專屬 3D 吉祥物設計')">
+          <div class="row-leading">
+            <span class="row-icon-badge" style="background: var(--system-purple);">
+              <span class="sf-symbol sf-list" data-sf="cube.transparent.fill"></span>
+            </span>
+            <span class="row-title" style="color: var(--system-blue);">訂製專屬 3D 吉祥物</span>
+          </div>
+          <div class="row-trailing">
+            <span>HK$1,500</span>
+            <span class="sf-symbol chevron-icon" data-sf="chevron.right"></span>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="section-header">招聘配對 (Recruitment Fee)</h2>
+      <div class="inset-grouped-list" id="b2bTalents"></div>
     </div>
-    <div class="tab-item" data-target="view-recruit" onclick="switchTab(this)">
-      <span class="tab-icon">🤝</span><span class="tab-label">招聘</span>
+  </section>
+
+  <!-- ========================================================================
+       FLOATING LIQUID GLASS TAB BAR (Max 5 Tabs, SF Symbols 25pt .regular)
+       ======================================================================== -->
+  <nav class="tab-bar liquid-glass" aria-label="主導覽列">
+    <div class="tab-item active interactive-glass" data-target="view-map" onclick="switchTab(this)" role="tab" aria-selected="true">
+      <span class="sf-symbol sf-tab" data-sf="map.fill"></span>
+      <span class="tab-label">地圖</span>
     </div>
-    <div class="tab-item" data-target="view-tip" onclick="switchTab(this)">
-      <span class="tab-icon">🎆</span><span class="tab-label">打賞</span>
+    <div class="tab-item interactive-glass" data-target="view-recruit" onclick="switchTab(this)" role="tab" aria-selected="false">
+      <span class="sf-symbol sf-tab" data-sf="person.2.fill"></span>
+      <span class="tab-label">招聘</span>
     </div>
-    <div class="tab-item" data-target="view-b2b" onclick="switchTab(this)">
-      <span class="tab-icon">💼</span><span class="tab-label">後台</span>
+    <div class="tab-item interactive-glass" data-target="view-tip" onclick="switchTab(this)" role="tab" aria-selected="false">
+      <span class="sf-symbol sf-tab" data-sf="sparkles"></span>
+      <span class="tab-label">打賞</span>
+    </div>
+    <div class="tab-item interactive-glass" data-target="view-b2b" onclick="switchTab(this)" role="tab" aria-selected="false">
+      <span class="sf-symbol sf-tab" data-sf="briefcase.fill"></span>
+      <span class="tab-label">後台</span>
     </div>
   </nav>
 
-  <!-- =========================================
-       餐廳詳情頁
-       ========================================= -->
+  <!-- ========================================================================
+       RESTAURANT DETAIL SHEET (Grabber + .medium/.large Detents)
+       ======================================================================== -->
   <div class="detail-backdrop" id="detailBackdrop" onclick="closeDetail()"></div>
-  
-  <div id="detail-view">
+
+  <aside id="detail-view" aria-label="餐廳詳情">
     <div class="detail-drag-area" id="detailDragArea">
       <div class="modal-grabber"></div>
     </div>
-    
+
     <div class="detail-nav-bar">
-      <div class="nav-btn-icon" onclick="closeDetail()">⌄</div>
+      <button class="nav-circle-glass-btn liquid-glass interactive-glass" onclick="closeDetail()" aria-label="關閉詳情">
+        <span class="sf-symbol sf-inline" data-sf="xmark"></span>
+      </button>
       <div class="nav-title-text" id="detailNavTitle">餐廳名稱</div>
-      <div class="nav-btn-icon">􀈂</div>
+      <button class="nav-circle-glass-btn liquid-glass interactive-glass" onclick="shareRestaurant()" aria-label="分享餐廳">
+        <span class="sf-symbol sf-inline" data-sf="square.and.arrow.up"></span>
+      </button>
     </div>
 
     <div class="detail-scroll-area" id="detailScrollArea">
@@ -505,70 +1493,110 @@
         <div class="tag-row" id="detailTags"></div>
       </div>
 
+      <!-- Opaque Content Cards (Strict Liquid Glass 2.0 Compliance) -->
       <div class="info-cards">
         <div class="info-card">
-          <div class="val" style="color: var(--system-orange);">4.9 ★★★★★</div>
-          <div class="sub">1,248 則評價</div>
+          <div class="val" style="color: var(--system-orange);">
+            <span class="sf-symbol sf-list" data-sf="star.fill"></span>
+            <span id="detailRatingScore">4.9</span>
+          </div>
+          <div class="sub">1,248 則無障礙評價</div>
         </div>
         <div class="info-card">
-          <div class="val" style="color: var(--system-green);">營業中</div>
+          <div class="val" style="color: var(--system-green);">
+            <span class="sf-symbol sf-list" data-sf="checkmark.circle.fill"></span>
+            <span>營業中</span>
+          </div>
           <div class="sub">晚上 10:00 關門</div>
         </div>
       </div>
 
-      <!-- 核心功能按鈕 (已補回雙向溝通) -->
+      <!-- Secondary Liquid Glass Action Controls -->
       <div class="action-row">
         <div class="action-btn-wrapper" onclick="openComm()">
-          <div class="action-btn" style="color: var(--system-blue);">🤟</div><span class="action-label">雙向溝通</span>
+          <div class="action-glass-circle liquid-glass interactive-glass" style="color: var(--system-blue);">
+            <span class="sf-symbol sf-btn" data-sf="hand.wave.fill"></span>
+          </div>
+          <span class="action-label">雙向溝通</span>
         </div>
         <div class="action-btn-wrapper" onclick="openAR()">
-          <div class="action-btn" style="color: var(--system-purple);">📷</div><span class="action-label">AR 掃描</span>
+          <div class="action-glass-circle liquid-glass interactive-glass" style="color: var(--system-purple);">
+            <span class="sf-symbol sf-btn" data-sf="viewfinder"></span>
+          </div>
+          <span class="action-label">AR 掃描</span>
         </div>
         <div class="action-btn-wrapper" onclick="triggerServiceCall()">
-          <div class="action-btn" style="color: var(--system-green);">🔔</div><span class="action-label">呼叫服務</span>
+          <div class="action-glass-circle liquid-glass interactive-glass" style="color: var(--system-green);">
+            <span class="sf-symbol sf-btn" data-sf="bell.badge.fill"></span>
+          </div>
+          <span class="action-label">呼叫服務</span>
         </div>
         <div class="action-btn-wrapper" id="actionCall">
-          <div class="action-btn">📞</div><span class="action-label">致電</span>
+          <div class="action-glass-circle liquid-glass interactive-glass" style="color: var(--system-blue);">
+            <span class="sf-symbol sf-btn" data-sf="phone.fill"></span>
+          </div>
+          <span class="action-label">致電</span>
         </div>
       </div>
 
-      <div class="segmented-control">
-        <div class="seg-item active" onclick="switchDetailTab(this, 'tab-overview')">簡介</div>
-        <div class="seg-item" onclick="switchDetailTab(this, 'tab-rating')">評分</div>
-        <div class="seg-item" onclick="switchDetailTab(this, 'tab-staff')">員工</div>
+      <!-- Native Segmented Picker -->
+      <div class="segmented-control" role="tablist">
+        <div class="seg-item active" onclick="switchDetailTab(this, 'tab-overview')" role="tab">簡介</div>
+        <div class="seg-item" onclick="switchDetailTab(this, 'tab-rating')" role="tab">評分</div>
+        <div class="seg-item" onclick="switchDetailTab(this, 'tab-staff')" role="tab">員工</div>
       </div>
 
       <div class="detail-body">
         <div id="tab-overview">
-          <div class="inset-grouped-list" style="margin:0;">
-            <div class="list-row" style="cursor:default;">
-              <div class="row-content">
-                <span class="row-title">無障礙設施</span>
-                <span class="row-subtitle">入口平坦 · 光線充足 · 提供手語餐牌</span>
+          <div class="inset-grouped-list">
+            <div class="list-row has-leading-icon" style="cursor: default;">
+              <div class="row-leading">
+                <span class="row-icon-badge" style="background: var(--system-blue);">
+                  <span class="sf-symbol sf-list" data-sf="accessibility"></span>
+                </span>
+                <div class="row-content">
+                  <span class="row-title">無障礙設施</span>
+                  <span class="row-subtitle">入口平坦 · 光線充足 · 提供手語餐牌</span>
+                </div>
               </div>
             </div>
-            <div class="list-row" style="cursor:default;">
-              <div class="row-content">
-                <span class="row-title">聽障員工比例</span>
-                <span class="row-subtitle">50% 前線員工為聽障人士</span>
+            <div class="list-row has-leading-icon" style="cursor: default;">
+              <div class="row-leading">
+                <span class="row-icon-badge" style="background: var(--system-teal);">
+                  <span class="sf-symbol sf-list" data-sf="person.2.fill"></span>
+                </span>
+                <div class="row-content">
+                  <span class="row-title">聽障員工比例</span>
+                  <span class="row-subtitle">50% 前線員工為聽障人士</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div id="tab-rating" style="display:none;">
-          <div id="ratingForm"></div>
-          <button class="btn glass-prominent" style="margin-top:16px;" onclick="submitRating()">提交評分</button>
+        <div id="tab-rating" style="display: none;">
+          <div class="rating-card" id="ratingForm"></div>
+          <div style="padding: 16px;">
+            <button class="btn-glass-prominent interactive-glass" onclick="submitRating()">提交無障礙評分</button>
+          </div>
         </div>
 
-        <div id="tab-staff" style="display:none;">
-          <div class="inset-grouped-list" style="margin:0;">
-            <div class="list-row">
-              <div class="row-content">
-                <span class="row-title">阿明 (水吧)</span>
-                <span class="row-subtitle">擅長：視覺指示 · 專注</span>
+        <div id="tab-staff" style="display: none;">
+          <div class="inset-grouped-list">
+            <div class="list-row has-leading-icon" style="cursor: default;">
+              <div class="row-leading">
+                <span class="row-icon-badge" style="background: var(--system-pink);">
+                  <span class="sf-symbol sf-list" data-sf="person.fill"></span>
+                </span>
+                <div class="row-content">
+                  <span class="row-title">阿明 (水吧)</span>
+                  <span class="row-subtitle">擅長：視覺指示 · 專注</span>
+                </div>
               </div>
-              <button class="btn glass-regular" style="width:auto;padding:6px 12px;margin:0;font-size:13px;color:var(--system-pink);" onclick="quickTip(this)">打賞 🎆</button>
+              <button class="btn-glass interactive-glass" style="color: var(--system-pink); padding: 6px 14px; min-height: 36px; font: var(--type-subheadline); font-weight: 600;" onclick="quickTip()">
+                <span class="sf-symbol sf-inline" data-sf="sparkles"></span>
+                <span>打賞</span>
+              </button>
             </div>
           </div>
         </div>
@@ -576,163 +1604,360 @@
     </div>
 
     <div class="floating-cta">
-      <button class="cta-btn" id="actionNav">
-        <span>􀙛</span> 規劃路線
+      <button class="btn-glass-prominent interactive-glass" id="actionNav">
+        <span class="sf-symbol sf-btn" data-sf="arrow.triangle.turn.up.right.diamond.fill"></span>
+        <span>規劃路線</span>
       </button>
     </div>
-  </div>
+  </aside>
 
-  <!-- AR Modal -->
+  <!-- ========================================================================
+       AR MENU SCANNER MODAL (.clear Liquid Glass over Camera Media)
+       ======================================================================== -->
   <div id="ar-modal" onclick="closeAR()">
-    <div class="ar-scan-box" id="arScanBox">
-      <div style="color:#fff; font-size:40px; margin-bottom:10px;">📷 對準餐牌...</div>
-      <div style="color:#fff; font-size:14px; opacity:0.7;">點擊畫面開始掃描</div>
+    <div class="ar-top-bar">
+      <span style="color:#FFF; font: var(--type-headline);">AR 手語餐牌掃描</span>
+      <button class="nav-circle-glass-btn liquid-glass-clear interactive-glass" style="color:#FFF;" onclick="closeAR()" aria-label="關閉掃描">
+        <span class="sf-symbol sf-inline" data-sf="xmark"></span>
+      </button>
     </div>
-    <div class="ar-result" id="arResult">
-      <div style="font-size:40px; margin-bottom:10px;">🧑‍🍳</div>
-      <b>鮮蝦雲吞麵 ($48)</b><br><br>
-      <span style="color:red; font-weight:700;">⚠️ 注意：含甲殼類及花生敏感原</span><br><br>
-      <div style="background:#f0f0f0; padding:10px; border-radius:10px; display:inline-block;">
-        👐 手語示範：<b>「呢個有花生，唔食得」</b>
+
+    <div class="ar-scan-box" id="arScanBox">
+      <span class="sf-symbol sf-standalone" style="color: #FFFFFF;" data-sf="viewfinder"></span>
+      <div style="font: var(--type-headline);">對準餐牌掃描中…</div>
+      <div style="font: var(--type-footnote); opacity: 0.75;">自動識別敏感原與手語示範</div>
+    </div>
+
+    <div class="ar-result" id="arResult" onclick="event.stopPropagation()">
+      <div style="display:inline-flex; width:48px; height:48px; border-radius:14px; background: color-mix(in srgb, var(--system-orange) 15%, transparent); color: var(--system-orange); align-items:center; justify-content:center; margin-bottom:12px;">
+        <span class="sf-symbol sf-standalone" data-sf="fork.knife"></span>
+      </div>
+      <div style="font: var(--type-title3); margin-bottom: 8px;">鮮蝦雲吞麵 (HK$48)</div>
+      <div style="font: var(--type-subheadline); color: var(--system-red); font-weight: 600; margin-bottom: 14px;">
+        注意：含甲殼類及花生敏感原
+      </div>
+      <div style="background: var(--tertiary-system-grouped-background); padding: 12px 14px; border-radius: 12px; font: var(--type-subheadline);">
+        手語示範：<strong>「呢個有花生，唔食得」</strong>
       </div>
     </div>
   </div>
 
-  <!-- 雙向溝通 Modal (已補回手語鏡頭) -->
+  <!-- ========================================================================
+       TWO-WAY COMMUNICATION MODAL (Sign Language + Live Speech Captions)
+       ======================================================================== -->
   <div id="comm-modal">
     <div class="comm-header">
-      <span>🤟 雙向溝通 (手語識別 + 語音字幕)</span>
-      <button class="comm-close" onclick="closeComm()">✕</button>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="sf-symbol sf-btn" style="color: #0A84FF;" data-sf="hand.wave.fill"></span>
+        <span>雙向無障礙溝通</span>
+      </div>
+      <button class="nav-circle-glass-btn liquid-glass-clear interactive-glass" style="color: #FFFFFF;" onclick="closeComm()" aria-label="關閉雙向溝通">
+        <span class="sf-symbol sf-inline" data-sf="xmark"></span>
+      </button>
     </div>
-    
+
     <div class="camera-container">
       <video id="webcam" autoplay playsinline></video>
       <canvas id="output_canvas"></canvas>
+      <div class="gesture-pill liquid-glass-clear" id="gestureResult">請對準鏡頭比手勢…</div>
     </div>
-    <div class="gesture-result" id="gestureResult">請對鏡頭比手勢...</div>
 
     <div class="speech-container">
-      <div class="speech-label">🎤 店員語音即時字幕</div>
-      <div class="speech-text" id="speechText">正在聆聽...</div>
+      <div class="speech-label">
+        <span class="sf-symbol" style="width:16px;height:16px;" data-sf="waveform"></span>
+        <span>店員語音即時字幕 (廣東話)</span>
+      </div>
+      <div class="speech-text" id="speechText">正在聆聽語音…</div>
     </div>
   </div>
 
-  <!-- Fireworks Container -->
   <div class="fireworks-container" id="fx"></div>
 
 <script>
-document.addEventListener('dragstart', e => e.preventDefault());
-document.addEventListener('selectstart', e => e.preventDefault());
+/* ============================================================================
+   SF Symbols 8 Crisp Vector Library
+   ============================================================================ */
+const SF_SYMBOLS = {
+  "map.fill": `<svg viewBox="0 0 24 24"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>`,
+  "person.2.fill": `<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  "sparkles": `<svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/><path d="M5 16l.7 1.6L7.3 18.3l-1.6.7L5 20.6l-.7-1.6-1.6-.7 1.6-.7L5 16z"/></svg>`,
+  "briefcase.fill": `<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>`,
+  "location.fill": `<svg viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+  "ear.badge.waveform": `<svg viewBox="0 0 24 24"><path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-6 6-6 10a3.5 3.5 0 1 1-7 0"/><path d="M15 8.5a2.5 2.5 0 0 0-5 0v1a2 2 0 1 1 0 4"/></svg>`,
+  "chevron.up": `<svg viewBox="0 0 24 24"><polyline points="18 15 12 9 6 15"/></svg>`,
+  "chevron.down": `<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>`,
+  "chevron.right": `<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`,
+  "magnifyingglass": `<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.5"/><line x1="20.5" y1="20.5" x2="16.35" y2="16.35"/></svg>`,
+  "xmark": `<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  "square.and.arrow.up": `<svg viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`,
+  "star.fill": `<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  "checkmark": `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
+  "checkmark.circle.fill": `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11.2 14.2 15.5 9.8"/></svg>`,
+  "hand.wave.fill": `<svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0v4"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>`,
+  "viewfinder": `<svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M16 4h2a2 2 0 0 1 2 2v2"/><path d="M16 20h2a2 2 0 0 0 2-2v-2"/><circle cx="12" cy="12" r="3"/></svg>`,
+  "bell.badge.fill": `<svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><circle cx="18" cy="5" r="3"/></svg>`,
+  "phone.fill": `<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  "accessibility": `<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M5 9h14"/><path d="M12 9v6"/><path d="M9 21l3-6 3 6"/></svg>`,
+  "arrow.triangle.turn.up.right.diamond.fill": `<svg viewBox="0 0 24 24"><polygon points="12 2 22 12 12 22 2 12 12 2"/><polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
+  "person.fill": `<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+  "heart.fill": `<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`,
+  "creditcard.fill": `<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`,
+  "cube.transparent.fill": `<svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+  "fork.knife": `<svg viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>`,
+  "waveform": `<svg viewBox="0 0 24 24"><line x1="4" y1="10" x2="4" y2="14"/><line x1="8" y1="6" x2="8" y2="18"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="10" x2="20" y2="14"/></svg>`,
+  "cup.and.saucer.fill": `<svg viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>`,
+  "trophy.fill": `<svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>`
+};
 
-/* ================= Data Layer ================= */
+function renderIcons(root = document) {
+  root.querySelectorAll('[data-sf]').forEach(el => {
+    const name = el.getAttribute('data-sf');
+    if (SF_SYMBOLS[name]) el.innerHTML = SF_SYMBOLS[name];
+  });
+}
+
+/* ============================================================================
+   Liquid Glass 2.0 .interactive() Touch Illumination & Haptic Engine
+   ============================================================================ */
+function triggerHaptic(type = 'light') {
+  if (!navigator.vibrate) return;
+  if (type === 'light') navigator.vibrate(10);
+  else if (type === 'success') navigator.vibrate([15, 40, 20]);
+  else if (type === 'error') navigator.vibrate([30, 40, 30, 40, 30]);
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const target = e.target.closest('.interactive-glass');
+  if (!target) return;
+  const rect = target.getBoundingClientRect();
+  target.style.setProperty('--gx', `${e.clientX - rect.left}px`);
+  target.style.setProperty('--gy', `${e.clientY - rect.top}px`);
+  target.classList.add('is-pressed');
+  triggerHaptic('light');
+});
+
+document.addEventListener('pointermove', (e) => {
+  const target = document.querySelector('.interactive-glass.is-pressed');
+  if (!target) return;
+  const rect = target.getBoundingClientRect();
+  target.style.setProperty('--gx', `${e.clientX - rect.left}px`);
+  target.style.setProperty('--gy', `${e.clientY - rect.top}px`);
+});
+
+['pointerup', 'pointercancel', 'pointerleave'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    document.querySelectorAll('.interactive-glass.is-pressed').forEach(el => {
+      el.classList.remove('is-pressed');
+    });
+  });
+});
+
+/* Native iOS Notification Banner */
+let bannerTimer = null;
+function showBanner(title, msg, iconName = 'checkmark.circle.fill', color = 'var(--system-green)') {
+  const banner = document.getElementById('iosBanner');
+  const iconEl = document.getElementById('bannerIcon');
+  iconEl.style.background = color;
+  iconEl.innerHTML = `<span class="sf-symbol sf-list">${SF_SYMBOLS[iconName] || ''}</span>`;
+  document.getElementById('bannerTitle').innerText = title;
+  document.getElementById('bannerMsg').innerText = msg;
+  banner.classList.add('show');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => banner.classList.remove('show'), 3200);
+}
+
+/* ============================================================================
+   Domain Data Layer
+   ============================================================================ */
 const restaurants = [
-  { id:"r1", name:"聰鳴茶座", district:"將軍澳", lat:22.3075, lng:114.2602, score:92, phone:"+852 1234 5678", tags:["社企","手語支援"] },
-  { id:"r2", name:"樂農", district:"灣仔", lat:22.2775, lng:114.1733, score:90, phone:"+852 8765 4321", tags:["社企","圖示餐牌"] },
-  { id:"r3", name:"太興", district:"旺角", lat:22.3193, lng:114.1694, score:78, phone:"+852 1111 2222", tags:["連鎖","聽障員工"] },
-  { id:"r5", name:"靜·咖啡", district:"中環", lat:22.2819, lng:114.1582, score:86, phone:"+852 3333 4444", tags:["安靜","手語支援"] },
+  { id: "r1", name: "聰鳴茶座", district: "將軍澳", lat: 22.3075, lng: 114.2602, score: 92, rating: "4.9", phone: "+852 1234 5678", tags: ["社企", "手語支援"] },
+  { id: "r2", name: "樂農", district: "灣仔", lat: 22.2775, lng: 114.1733, score: 90, rating: "4.8", phone: "+852 8765 4321", tags: ["社企", "圖示餐牌"] },
+  { id: "r3", name: "太興", district: "旺角", lat: 22.3193, lng: 114.1694, score: 78, rating: "4.5", phone: "+852 1111 2222", tags: ["連鎖", "聽障員工"] },
+  { id: "r5", name: "靜·咖啡", district: "中環", lat: 22.2819, lng: 114.1582, score: 86, rating: "4.7", phone: "+852 3333 4444", tags: ["安靜", "手語支援"] }
 ];
 
 const jobs = [
-  { id:"j1", restaurantName:"聰鳴茶座", title:"水吧助理", type:"水吧", traits:["重複性工作","專注","視覺指示"] },
-  { id:"j2", restaurantName:"太興", title:"備餐員", type:"備餐", traits:["重複性工作","專注","圖示SOP"] },
-  { id:"j3", restaurantName:"靜·咖啡", title:"咖啡師學徒", type:"水吧", traits:["專注","視覺指示","手語溝通"] },
+  { id: "j1", restaurantName: "聰鳴茶座", title: "水吧助理", type: "水吧", traits: ["重複性工作", "專注", "視覺指示"] },
+  { id: "j2", restaurantName: "太興", title: "備餐員", type: "備餐", traits: ["重複性工作", "專注", "圖示SOP"] },
+  { id: "j3", restaurantName: "靜·咖啡", title: "咖啡師學徒", type: "水吧", traits: ["專注", "視覺指示", "手語溝通"] }
 ];
 
-const GIFTS = [{e:"☕",l:"虛擬咖啡",a:20},{e:"🏆",l:"傑出員工獎盃",a:50},{e:"💖",l:"專屬愛心",a:100}];
+const GIFTS = [
+  { icon: "cup.and.saucer.fill", color: "var(--system-orange)", l: "虛擬咖啡", a: 20 },
+  { icon: "trophy.fill", color: "var(--system-blue)", l: "傑出員工獎盃", a: 50 },
+  { icon: "heart.fill", color: "var(--system-pink)", l: "專屬愛心", a: 100 }
+];
 let selectedGift = GIFTS[0];
 
-/* ================= 全局變數 ================= */
-let map, mapInited = false;
+/* ============================================================================
+   NavigationStack & TabView Controller
+   ============================================================================ */
+let map;
 let currentRestaurant = null;
+const viewMap = document.getElementById('view-map');
 const rankSheet = document.getElementById('rankSheet');
+const sheetDragArea = document.getElementById('sheetDragArea');
 const sheetContent = document.getElementById('sheetContent');
 const detailView = document.getElementById('detail-view');
 const detailBackdrop = document.getElementById('detailBackdrop');
 const pulseGreen = document.getElementById('pulse-green');
 
-/* ================= Navigation ================= */
+/* Lock First View Browser Scroll */
+viewMap.addEventListener('scroll', () => {
+  viewMap.scrollTop = 0;
+  viewMap.scrollLeft = 0;
+});
+
 function switchTab(el) {
-  document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-item').forEach(t => {
+    t.classList.remove('active');
+    t.setAttribute('aria-selected', 'false');
+  });
   el.classList.add('active');
+  el.setAttribute('aria-selected', 'true');
+
   const targetId = el.getAttribute('data-target');
   document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
   document.getElementById(targetId).classList.add('active');
-  if(targetId === 'view-map' && map) setTimeout(() => map.invalidateSize(), 300);
+
+  if (targetId === 'view-map' && map) {
+    setTimeout(() => map.invalidateSize(), 300);
+  }
 }
 
-/* ================= Map ================= */
-function initMap(){
-  mapInited = true;
-  map = L.map('map', { zoomControl: false }).setView([22.31,114.17], 12);
-  L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { subdomains: ['1','2','3','4'] }).addTo(map);
-  
-  const icon = L.divIcon({ html:'<div style="background:#007AFF;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>', className:"", iconSize:[20,20] });
+/* Collapsible Large Title on Scroll */
+function handleNavScroll(container, navId) {
+  const nav = document.getElementById(navId);
+  if (!nav) return;
+  if (container.scrollTop > 28) nav.classList.add('scrolled');
+  else nav.classList.remove('scrolled');
+}
 
-  restaurants.forEach(r=>{
-    L.marker([r.lat,r.lng],{icon}).addTo(map).on('click', () => {
-      rankSheet.classList.remove('expanded');
+/* ============================================================================
+   Map & Inset Grouped Ranking Sheet
+   ============================================================================ */
+function initMap() {
+  map = L.map('map', { zoomControl: false, attributionControl: false }).setView([22.31, 114.17], 12);
+  L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
+    subdomains: ['1', '2', '3', '4']
+  }).addTo(map);
+
+  const markerIcon = L.divIcon({
+    html: `<div style="background:var(--system-blue);width:22px;height:22px;border-radius:50%;border:3px solid #FFFFFF;box-shadow:0 3px 10px rgba(0,122,255,0.45);"></div>`,
+    className: "",
+    iconSize: [22, 22]
+  });
+
+  restaurants.forEach(r => {
+    L.marker([r.lat, r.lng], { icon: markerIcon }).addTo(map).on('click', () => {
+      setSheetExpanded(false);
       openDetail(r.id);
       focusOnRestaurant(r.lat, r.lng);
     });
   });
-  
+
   renderRank();
 }
 
-function renderRank(){
-  const html = [...restaurants].sort((a,b)=>b.score-a.score).map((r,i)=>`
-    <div class="list-row" onclick="rankSheet.classList.remove('expanded'); openDetail('${r.id}'); focusOnRestaurant(${r.lat}, ${r.lng});">
+function resetMapCenter() {
+  if (!map) return;
+  map.flyTo([22.31, 114.17], 12, { duration: 0.7 });
+  showBanner('地圖已置中', '已返回香港全區無障礙餐廳總覽', 'location.fill', 'var(--system-blue)');
+}
+
+function filterRestaurants(query) {
+  const clearBtn = document.getElementById('mapSearchClear');
+  clearBtn.classList.toggle('visible', query.trim().length > 0);
+  renderRank(query.trim().toLowerCase());
+}
+
+function clearMapSearch() {
+  const input = document.getElementById('mapSearchInput');
+  input.value = '';
+  filterRestaurants('');
+}
+
+function renderRank(filter = '') {
+  const filtered = [...restaurants]
+    .sort((a, b) => b.score - a.score)
+    .filter(r =>
+      !filter ||
+      r.name.toLowerCase().includes(filter) ||
+      r.district.toLowerCase().includes(filter) ||
+      r.tags.some(t => t.toLowerCase().includes(filter))
+    );
+
+  if (filtered.length === 0) {
+    document.getElementById('rankList').innerHTML = `
+      <div class="list-row" style="cursor:default; justify-content:center; color:var(--secondary-label);">
+        找不到符合條件的無障礙餐廳
+      </div>`;
+    return;
+  }
+
+  const html = filtered.map((r, i) => `
+    <div class="list-row" onclick="setSheetExpanded(false); openDetail('${r.id}'); focusOnRestaurant(${r.lat}, ${r.lng});">
       <div class="row-content">
-        <span class="row-title">${i+1}. ${r.name}</span>
-        <span class="row-subtitle">${r.district}</span>
+        <span class="row-title">${i + 1}. ${r.name}</span>
+        <span class="row-subtitle">${r.district} · ${r.tags.join(' · ')}</span>
       </div>
-      <div class="row-value">
-        <span style="color:var(--system-blue);font-weight:600;">${r.score}</span>
-        <span class="chevron">›</span>
+      <div class="row-trailing">
+        <span style="color: var(--system-blue); font-weight: 600;">${r.score}</span>
+        <span class="sf-symbol chevron-icon">${SF_SYMBOLS["chevron.right"]}</span>
       </div>
     </div>
   `).join('');
+
   document.getElementById('rankList').innerHTML = html;
 }
 
 function focusOnRestaurant(lat, lng) {
   const zoom = 16;
   const point = map.project([lat, lng], zoom);
-  const offsetY = window.innerHeight * 0.3; 
-  const newPoint = point.add([0, offsetY]); 
+  const offsetY = window.innerHeight * 0.28;
+  const newPoint = point.add([0, offsetY]);
   const newLatLng = map.unproject(newPoint, zoom);
-  map.flyTo(newLatLng, zoom, { duration: 0.8 });
+  map.flyTo(newLatLng, zoom, { duration: 0.75 });
 }
 
-/* ================= 詳情頁邏輯 ================= */
+/* ============================================================================
+   Restaurant Detail Modal Sheet (.medium / .large Detents)
+   ============================================================================ */
 const DIMS = [
-  { key:"staffFriendliness", label:"店員態度友善度", emojis:["😐","🙂","😊","🤝","🌟"] },
-  { key:"lighting", label:"光線夠唔夠睇口型", emojis:["🌑","🌒","🌓","🌔","💡"] },
-  { key:"noise", label:"環境安靜程度", emojis:["📢","🔉","🔈","🔇","🤫"] },
+  { key: "staffFriendliness", label: "店員態度友善度", emojis: ["😐", "🙂", "😊", "🤝", "🌟"] },
+  { key: "lighting", label: "光線夠唔夠睇口型", emojis: ["🌑", "🌒", "🌓", "🌔", "💡"] },
+  { key: "noise", label: "環境安靜程度", emojis: ["📢", "🔉", "🔈", "🔇", "🤫"] }
 ];
 
 function openDetail(id) {
   currentRestaurant = restaurants.find(x => x.id === id);
-  if(!currentRestaurant) return;
-  
+  if (!currentRestaurant) return;
+
   document.getElementById('detailName').innerText = currentRestaurant.name;
   document.getElementById('detailNavTitle').innerText = currentRestaurant.name;
-  document.getElementById('detailTags').innerHTML = currentRestaurant.tags.map(t => `<span class="tag">♿ ${t}</span>`).join('');
+  document.getElementById('detailRatingScore').innerText = currentRestaurant.rating;
+  document.getElementById('detailTags').innerHTML = currentRestaurant.tags.map(t => `
+    <span class="tag">
+      <span class="sf-symbol" style="width:13px;height:13px;color:var(--system-blue);">${SF_SYMBOLS["accessibility"]}</span>
+      <span>${t}</span>
+    </span>
+  `).join('');
 
-  document.getElementById('actionCall').onclick = () => window.location.href = `tel:${currentRestaurant.phone}`;
-  document.getElementById('actionNav').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentRestaurant.lat},${currentRestaurant.lng}`, '_blank');
+  document.getElementById('actionCall').onclick = () => {
+    window.location.href = `tel:${currentRestaurant.phone}`;
+  };
+  document.getElementById('actionNav').onclick = () => {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentRestaurant.lat},${currentRestaurant.lng}`, '_blank');
+  };
 
-  const formHtml = DIMS.map(d => `
-    <div style="margin-bottom: 24px;">
-      <div style="font-size:15px; font-weight:600; margin-bottom:8px;">${d.label}</div>
+  document.getElementById('ratingForm').innerHTML = DIMS.map(d => `
+    <div class="rating-group">
+      <div class="rating-group-title">${d.label}</div>
       <div class="emoji-row">
-        ${d.emojis.map((e, i) => `
-          <button class="emoji-btn" onclick="selectEmoji(this)">${e}</button>
-        `).join('')}
+        ${d.emojis.map(e => `<button type="button" class="emoji-btn" onclick="selectEmoji(this)">${e}</button>`).join('')}
       </div>
     </div>
   `).join('');
-  document.getElementById('ratingForm').innerHTML = formHtml;
 
   detailView.classList.remove('expanded');
   detailBackdrop.classList.add('active');
@@ -746,26 +1971,35 @@ function closeDetail() {
   detailView.style.transform = '';
 }
 
+function shareRestaurant() {
+  if (!currentRestaurant) return;
+  showBanner('已複製分享連結', `${currentRestaurant.name}（${currentRestaurant.district}）無障礙資訊`, 'square.and.arrow.up', 'var(--system-blue)');
+}
+
 function switchDetailTab(el, tabId) {
   document.querySelectorAll('.seg-item').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
   document.querySelectorAll('#detail-view .detail-body > div').forEach(d => d.style.display = 'none');
   document.getElementById(tabId).style.display = 'block';
+  triggerHaptic('light');
 }
 
 function selectEmoji(btn) {
-  const row = btn.parentElement;
-  row.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('on'));
+  btn.parentElement.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
+  triggerHaptic('light');
 }
 
 function submitRating() {
-  if(!currentRestaurant) return;
-  alert(`多謝你嘅評分！🙌\n已成功提交對「${currentRestaurant.name}」嘅評價。`);
+  if (!currentRestaurant) return;
+  triggerHaptic('success');
+  showBanner('評分已提交', `多謝你對「${currentRestaurant.name}」的無障礙評價`, 'checkmark.circle.fill', 'var(--system-green)');
   closeDetail();
 }
 
-/* ================= AR & 雙向溝通功能 ================= */
+/* ============================================================================
+   AR Menu Scanner & Two-Way Communication (MediaPipe + SpeechRecognition)
+   ============================================================================ */
 function openAR() {
   document.getElementById('ar-modal').classList.add('active');
   document.getElementById('arResult').style.display = 'none';
@@ -773,8 +2007,10 @@ function openAR() {
   setTimeout(() => {
     document.getElementById('arScanBox').style.display = 'none';
     document.getElementById('arResult').style.display = 'block';
-  }, 1500);
+    triggerHaptic('success');
+  }, 1400);
 }
+
 function closeAR() {
   document.getElementById('ar-modal').classList.remove('active');
 }
@@ -782,11 +2018,10 @@ function closeAR() {
 let recognition;
 let handCamera = null;
 
-// 初始化語音
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
-  recognition.lang = 'zh-HK'; 
+  recognition.lang = 'zh-HK';
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.onresult = (event) => {
@@ -798,7 +2033,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   };
 }
 
-// 初始化手語
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
@@ -813,244 +2047,363 @@ function detectGesture(landmarks) {
   const thumbStraight = landmarks[4].x < landmarks[3].x;
   const straightCount = [indexStraight, middleStraight, ringStraight, pinkyStraight].filter(Boolean).length;
 
-  if (straightCount === 4 && thumbStraight) return "👋 你好 / 需要幫忙";
-  if (straightCount === 0 && !thumbStraight) return "✊ 停止 / 不需要";
-  if (straightCount === 1 && indexStraight && !middleStraight) return "☝️ 等一下";
-  if (straightCount === 0 && thumbStraight) return "👍 多謝 / 讚好";
-  if (straightCount >= 3) return "🙌 謝謝你";
+  if (straightCount === 4 && thumbStraight) return "你好 / 需要幫忙";
+  if (straightCount === 0 && !thumbStraight) return "停止 / 不需要";
+  if (straightCount === 1 && indexStraight && !middleStraight) return "請等一下";
+  if (straightCount === 0 && thumbStraight) return "多謝 / 讚好";
+  if (straightCount >= 3) return "謝謝你";
   return null;
 }
 
 function onResults(results) {
-  canvasElement.width = videoElement.videoWidth;
-  canvasElement.height = videoElement.videoHeight;
+  canvasElement.width = videoElement.videoWidth || 640;
+  canvasElement.height = videoElement.videoHeight || 480;
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     for (const landmarks of results.multiHandLandmarks) {
-      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#007AFF', lineWidth: 4});
-      drawLandmarks(canvasCtx, landmarks, {color: '#FFFFFF', lineWidth: 2, radius: 3});
+      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#0A84FF', lineWidth: 3.5 });
+      drawLandmarks(canvasCtx, landmarks, { color: '#FFFFFF', lineWidth: 1.5, radius: 3 });
     }
     const gesture = detectGesture(results.multiHandLandmarks[0]);
     if (gesture && gesture !== lastGesture) {
       lastGesture = gesture;
-      const resDiv = document.getElementById('gestureResult');
-      resDiv.innerText = gesture;
-      resDiv.style.transform = 'scale(1.1)';
-      setTimeout(() => resDiv.style.transform = 'scale(1)', 200);
+      document.getElementById('gestureResult').innerText = gesture;
+      triggerHaptic('light');
     }
-  } else {
-    if (lastGesture !== "") {
-      lastGesture = "";
-      document.getElementById('gestureResult').innerText = "請對鏡頭比手勢...";
-    }
+  } else if (lastGesture !== "") {
+    lastGesture = "";
+    document.getElementById('gestureResult').innerText = "請對準鏡頭比手勢…";
   }
   canvasCtx.restore();
 }
 
 function openComm() {
   document.getElementById('comm-modal').classList.add('active');
-  if (recognition) { try { recognition.start(); } catch(e) {} }
+  if (recognition) { try { recognition.start(); } catch (e) {} }
 
-  const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-  hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
-  hands.onResults(onResults);
+  if (typeof Hands !== 'undefined' && typeof Camera !== 'undefined') {
+    const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+    hands.onResults(onResults);
 
-  handCamera = new Camera(videoElement, {
-    onFrame: async () => { await hands.send({image: videoElement}); },
-    width: 640, height: 480
-  });
-  handCamera.start();
+    handCamera = new Camera(videoElement, {
+      onFrame: async () => { await hands.send({ image: videoElement }); },
+      width: 640,
+      height: 480
+    });
+    handCamera.start();
+  }
 }
 
 function closeComm() {
   document.getElementById('comm-modal').classList.remove('active');
-  if (recognition) { try { recognition.stop(); } catch(e) {} }
+  if (recognition) { try { recognition.stop(); } catch (e) {} }
   if (handCamera) { handCamera.stop(); }
-  document.getElementById('gestureResult').innerText = "請對鏡頭比手勢...";
-  document.getElementById('speechText').innerText = "正在聆聽...";
+  document.getElementById('gestureResult').innerText = "請對準鏡頭比手勢…";
+  document.getElementById('speechText').innerText = "正在聆聽語音…";
 }
 
 function triggerServiceCall() {
   pulseGreen.classList.add('pulse-on');
-  setTimeout(() => { pulseGreen.classList.remove('pulse-on'); }, 3000);
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-  alert('🔔 已呼叫服務！\n店員手環已收到通知，即將為你服務。');
+  setTimeout(() => pulseGreen.classList.remove('pulse-on'), 2800);
+  triggerHaptic('success');
+  showBanner('已呼叫無障礙服務', '店員震動手環已收到通知，即將前來協助', 'bell.badge.fill', 'var(--system-green)');
 }
 
-function quickTip(btn) {
+function launchParticles() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const fxContainer = document.getElementById('fx');
-  for(let i=0; i<15; i++) {
+  const symbols = ["✨", "🌟", "💖", "👏"];
+  for (let i = 0; i < 14; i++) {
     const sp = document.createElement("div");
     sp.className = "firework-particle";
-    sp.innerText = ["🎆","✨","🌟","👏","🤟","💖"][Math.floor(Math.random()*6)];
-    sp.style.left = '50%'; sp.style.top = '50%';
-    sp.style.setProperty("--x", (Math.random()*300-150)+"px");
-    sp.style.setProperty("--y", (Math.random()*-300-50)+"px");
+    sp.innerText = symbols[i % symbols.length];
+    sp.style.left = '50%';
+    sp.style.top = '52%';
+    sp.style.setProperty("--x", `${Math.random() * 280 - 140}px`);
+    sp.style.setProperty("--y", `${Math.random() * -280 - 40}px`);
     fxContainer.appendChild(sp);
   }
-  setTimeout(() => fxContainer.innerHTML = "", 1500);
-  alert('已送出視覺煙花！🎆');
+  setTimeout(() => { fxContainer.innerHTML = ""; }, 1400);
 }
 
-/* ================= Bottom Sheet 拖拽 ================= */
+function quickTip() {
+  launchParticles();
+  triggerHaptic('success');
+  showBanner('已送出視覺打賞', '阿明已收到你的鼓勵與心意', 'sparkles', 'var(--system-pink)');
+}
+
+/* ============================================================================
+   Bottom Sheet Bar-Only Drag Gesture
+   ============================================================================ */
 let isDragging = false, startY = 0, startTransform = 0;
-rankSheet.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('.list-row')) return; 
+
+function setSheetExpanded(expanded) {
+  rankSheet.classList.toggle('expanded', expanded);
+  const badge = document.getElementById('sheetHintBadge');
+  badge.innerHTML = expanded
+    ? `<span class="sf-symbol" style="width:14px;height:14px;">${SF_SYMBOLS["chevron.down"]}</span><span>向下收合</span>`
+    : `<span class="sf-symbol" style="width:14px;height:14px;">${SF_SYMBOLS["chevron.up"]}</span><span>向上拉動查看</span>`;
+}
+
+sheetDragArea.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  isDragging = true;
   startY = e.clientY;
   startTransform = new DOMMatrixReadOnly(window.getComputedStyle(rankSheet).transform).m42 || 0;
-  if (!rankSheet.classList.contains('expanded') || sheetContent.scrollTop <= 0) { isDragging = true; rankSheet.style.transition = 'none'; }
-});
-window.addEventListener('pointermove', (e) => {
-  if (!isDragging) return; e.preventDefault();
-  let newY = startTransform + (e.clientY - startY);
-  const maxY = window.innerHeight - 145;
-  if (newY > maxY) newY = maxY; if (newY < 0) newY = 0;
-  rankSheet.style.transform = `translateY(${newY}px)`;
-}, { passive: false });
-window.addEventListener('pointerup', (e) => {
-  if (!isDragging) return; isDragging = false;
-  rankSheet.style.transition = 'transform 0.4s var(--spring)'; rankSheet.style.transform = '';
-  const deltaY = e.clientY - startY;
-  if (deltaY < -50 || (deltaY < 20 && startTransform < window.innerHeight / 2)) rankSheet.classList.add('expanded');
-  else if (deltaY > 50) rankSheet.classList.remove('expanded');
+  rankSheet.style.transition = 'none';
+  sheetContent.style.transition = 'none';
+  sheetDragArea.setPointerCapture(e.pointerId);
 });
 
-/* ================= 詳情頁拖拽 ================= */
+sheetDragArea.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  e.preventDefault();
+  const maxY = Math.max(1, rankSheet.offsetHeight - 144);
+  let newY = startTransform + (e.clientY - startY);
+  if (newY > maxY) newY = maxY;
+  if (newY < 0) newY = 0;
+  rankSheet.style.transform = `translateY(${newY}px)`;
+
+  const progress = 1 - (newY / maxY);
+  if (progress > 0.08) {
+    sheetContent.style.visibility = 'visible';
+    sheetContent.style.opacity = String(Math.min(1, progress * 1.4));
+  } else {
+    sheetContent.style.visibility = 'hidden';
+    sheetContent.style.opacity = '0';
+  }
+});
+
+function finishSheetDrag(e) {
+  if (!isDragging) return;
+  isDragging = false;
+  rankSheet.style.transition = '';
+  rankSheet.style.transform = '';
+  sheetContent.style.transition = '';
+  sheetContent.style.opacity = '';
+  sheetContent.style.visibility = '';
+
+  const deltaY = e.clientY - startY;
+  if (deltaY < -36 || (Math.abs(deltaY) < 10 && !rankSheet.classList.contains('expanded'))) {
+    setSheetExpanded(true);
+    triggerHaptic('light');
+  } else if (deltaY > 36) {
+    setSheetExpanded(false);
+    triggerHaptic('light');
+  }
+}
+
+sheetDragArea.addEventListener('pointerup', finishSheetDrag);
+sheetDragArea.addEventListener('pointercancel', finishSheetDrag);
+
+/* ============================================================================
+   Restaurant Detail Sheet Detent Drag Gesture (.medium <-> .large / dismiss)
+   ============================================================================ */
 const detailDragArea = document.getElementById('detailDragArea');
 const detailScrollArea = document.getElementById('detailScrollArea');
 let isDraggingDetail = false, detailStartY = 0, detailCurrentY = 0;
+
 detailDragArea.addEventListener('pointerdown', (e) => {
-  isDraggingDetail = true; detailStartY = e.clientY;
+  isDraggingDetail = true;
+  detailStartY = e.clientY;
   detailCurrentY = new DOMMatrixReadOnly(window.getComputedStyle(detailView).transform).m42 || 0;
-  detailView.style.transition = 'none'; e.preventDefault();
+  detailView.style.transition = 'none';
+  detailDragArea.setPointerCapture(e.pointerId);
+  e.preventDefault();
 });
+
 detailScrollArea.addEventListener('pointerdown', (e) => {
   if (detailScrollArea.scrollTop <= 0 && detailView.classList.contains('expanded')) {
-    isDraggingDetail = true; detailStartY = e.clientY;
+    isDraggingDetail = true;
+    detailStartY = e.clientY;
     detailCurrentY = new DOMMatrixReadOnly(window.getComputedStyle(detailView).transform).m42 || 0;
     detailView.style.transition = 'none';
   }
 });
+
 window.addEventListener('pointermove', (e) => {
-  if (!isDraggingDetail) return; e.preventDefault();
+  if (!isDraggingDetail) return;
   let newY = detailCurrentY + (e.clientY - detailStartY);
-  if (newY < 0) newY = 0; if (newY > window.innerHeight * 0.4) newY = window.innerHeight * 0.4;
+  if (newY < 0) newY = 0;
   detailView.style.transform = `translateY(${newY}px)`;
 });
+
 window.addEventListener('pointerup', (e) => {
-  if (!isDraggingDetail) return; isDraggingDetail = false;
-  detailView.style.transition = 'transform 0.4s var(--spring)'; detailView.style.transform = '';
+  if (!isDraggingDetail) return;
+  isDraggingDetail = false;
+  detailView.style.transition = '';
+  detailView.style.transform = '';
+
   const deltaY = e.clientY - detailStartY;
-  if (deltaY < -50 || (deltaY < 20 && detailCurrentY < (window.innerHeight * 0.4) / 2)) detailView.classList.add('expanded');
-  else if (deltaY > 50) detailView.classList.remove('expanded');
+  const mediumOffset = window.innerHeight * 0.38;
+
+  if (!detailView.classList.contains('expanded') && deltaY > 90) {
+    closeDetail();
+    return;
+  }
+  if (deltaY < -45 || (Math.abs(deltaY) < 12 && detailCurrentY < mediumOffset / 2)) {
+    detailView.classList.add('expanded');
+  } else if (deltaY > 45) {
+    detailView.classList.remove('expanded');
+  }
 });
 
-/* ================= Recruit Tab ================= */
-const TRAITS = ["專注","重複性工作","視覺指示","手語溝通","團隊協作"];
-let seeker = { traits:["專注","重複性工作"] };
+/* ============================================================================
+   Tab 2: Recruit Matching
+   ============================================================================ */
+const TRAITS = ["專注", "重複性工作", "視覺指示", "手語溝通", "團隊協作"];
+let seeker = { traits: ["專注", "重複性工作"] };
 
 function renderChips() {
-  document.getElementById("traitChips").innerHTML = TRAITS.map(t =>
-    `<div class="chip" style="padding:8px 16px; border-radius:99px; background:var(--tertiary-system-grouped-background); color:var(--label); cursor:pointer;" onclick="toggleSeeker('${t}')">${t}</div>`
-  ).join("");
+  document.getElementById("traitChips").innerHTML = TRAITS.map(t => {
+    const active = seeker.traits.includes(t);
+    return `
+      <button type="button" class="trait-pill ${active ? 'selected' : ''}" onclick="toggleSeeker('${t}')">
+        ${active ? `<span class="sf-symbol" style="width:14px;height:14px;">${SF_SYMBOLS["checkmark"]}</span>` : ''}
+        <span>${t}</span>
+      </button>`;
+  }).join("");
 }
 
 window.toggleSeeker = (val) => {
-  seeker.traits = seeker.traits.includes(val) ? seeker.traits.filter(x => x !== val) : [...seeker.traits, val];
+  seeker.traits = seeker.traits.includes(val)
+    ? seeker.traits.filter(x => x !== val)
+    : [...seeker.traits, val];
   renderChips();
+  triggerHaptic('light');
 };
 
 window.runMatching = () => {
-  const res = jobs.map(job => {
-    const hits = job.traits.filter(t => seeker.traits.includes(t)).length;
-    return { job, score: hits * 20 + 40, hits };
-  }).sort((a,b) => b.score - a.score);
+  const keyword = (document.getElementById('jobSearchInput')?.value || '').trim().toLowerCase();
+  const res = jobs
+    .filter(j => !keyword || j.title.toLowerCase().includes(keyword) || j.restaurantName.toLowerCase().includes(keyword))
+    .map(job => {
+      const hits = job.traits.filter(t => seeker.traits.includes(t)).length;
+      return { job, score: Math.min(98, hits * 20 + 40) };
+    })
+    .sort((a, b) => b.score - a.score);
 
   document.getElementById("matchResults").innerHTML = `
-    <div class="list-header" style="padding-left:0;">配對結果</div>
-    <div class="inset-grouped-list" style="margin:0;">
-      ${res.map(r => `
-        <div class="list-row">
-          <div class="row-content">
-            <span class="row-title">${r.job.title}</span>
-            <span class="row-subtitle">${r.job.restaurantName} · ${r.job.type}</span>
+    <h2 class="section-header">配對結果 (${res.length})</h2>
+    <div class="inset-grouped-list">
+      ${res.length ? res.map(r => `
+        <div class="list-row has-leading-icon" onclick="showBanner('已遞交意向', '已向「${r.job.restaurantName}」發送 ${r.job.title} 應徵意向', 'checkmark.circle.fill', 'var(--system-green)')">
+          <div class="row-leading">
+            <span class="row-icon-badge" style="background: var(--system-blue);">
+              <span class="sf-symbol sf-list">${SF_SYMBOLS["briefcase.fill"]}</span>
+            </span>
+            <div class="row-content">
+              <span class="row-title">${r.job.title}</span>
+              <span class="row-subtitle">${r.job.restaurantName} · ${r.job.type}</span>
+            </div>
           </div>
-          <div class="row-value" style="color:var(--system-green);font-weight:600;">${r.score}%</div>
+          <div class="row-trailing">
+            <span style="color: var(--system-green); font-weight: 600;">${r.score}%</span>
+            <span class="sf-symbol chevron-icon">${SF_SYMBOLS["chevron.right"]}</span>
+          </div>
         </div>
-      `).join('')}
+      `).join('') : `<div class="list-row" style="cursor:default;color:var(--secondary-label);">沒有符合搜尋條件的職位</div>`}
     </div>
   `;
 };
 
-/* ================= Tip Tab ================= */
+/* ============================================================================
+   Tab 3: Employee Tipping
+   ============================================================================ */
 function renderTip() {
-  document.getElementById("giftList").innerHTML = GIFTS.map(g => `
-    <div class="list-row" onclick="selectGift('${g.l}')">
-      <div class="row-content" style="flex-direction:row;align-items:center;gap:12px;">
-        <span style="font-size:24px;">${g.e}</span>
-        <span class="row-title">${g.l}</span>
+  document.getElementById("giftList").innerHTML = GIFTS.map(g => {
+    const isSelected = selectedGift.l === g.l;
+    return `
+      <div class="list-row has-leading-icon" onclick="selectGift('${g.l}')">
+        <div class="row-leading">
+          <span class="row-icon-badge" style="background: ${g.color};">
+            <span class="sf-symbol sf-list">${SF_SYMBOLS[g.icon]}</span>
+          </span>
+          <span class="row-title">${g.l}</span>
+        </div>
+        <div class="row-trailing">
+          <span style="font-weight: 600; color: var(--label);">HK$${g.a}</span>
+          ${isSelected ? `<span class="sf-symbol sf-list" style="color: var(--system-blue);">${SF_SYMBOLS["checkmark"]}</span>` : '<span style="width:20px;"></span>'}
+        </div>
       </div>
-      <div class="row-value">
-        <span style="font-weight:600;color:var(--label);">HK$${g.a}</span>
-        ${selectedGift.l === g.l ? '<span style="color:var(--system-blue);">✓</span>' : ''}
-      </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
   document.getElementById("feeText").innerText = `HK$${(selectedGift.a * 0.05).toFixed(2)}`;
 }
 
-window.selectGift = (l) => { selectedGift = GIFTS.find(g => g.l === l); renderTip(); };
-
-window.sendTip = () => {
-  const fxContainer = document.getElementById("fx");
-  for(let i=0; i<15; i++) {
-    const sp = document.createElement("div");
-    sp.className = "firework-particle";
-    sp.innerText = ["🎆","✨","🌟","👏","🤟","💖"][Math.floor(Math.random()*6)];
-    sp.style.left = '50%'; sp.style.top = '50%';
-    sp.style.setProperty("--x", (Math.random()*300-150)+"px");
-    sp.style.setProperty("--y", (Math.random()*-300-50)+"px");
-    fxContainer.appendChild(sp);
-  }
-  setTimeout(() => fxContainer.innerHTML = "", 1500);
-  
-  const totalEl = document.getElementById('staffTotal');
-  let current = parseInt(totalEl.innerText.replace('HK$', ''));
-  totalEl.innerText = `HK$${current + selectedGift.a}`;
+window.selectGift = (l) => {
+  selectedGift = GIFTS.find(g => g.l === l);
+  renderTip();
+  triggerHaptic('light');
 };
 
-/* ================= B2B Tab (補回) ================= */
+window.sendTip = () => {
+  launchParticles();
+  triggerHaptic('success');
+  const totalEl = document.getElementById('staffTotal');
+  const current = parseInt(totalEl.innerText.replace('HK$', ''), 10) || 320;
+  totalEl.innerText = `HK$${current + selectedGift.a}`;
+  showBanner('打賞已送出', `已向阿明送出「${selectedGift.l}」(HK$${selectedGift.a})`, 'heart.fill', 'var(--system-pink)');
+};
+
+/* ============================================================================
+   Tab 4: B2B Restaurant Portal
+   ============================================================================ */
 let wallet = 10000;
-const talents = [{ name:"陳小姐", traits:["專注","視覺指示"] }, { name:"李生", traits:["重複性工作","團隊協作"] }];
+const talents = [
+  { name: "陳小姐", traits: ["專注", "視覺指示"] },
+  { name: "李生", traits: ["重複性工作", "團隊協作"] }
+];
 
 function renderB2B() {
   document.getElementById("b2bTalents").innerHTML = talents.map(t => `
-    <div class="list-row">
-      <div class="row-content">
-        <span class="row-title">${t.name}</span>
-        <span class="row-subtitle">${t.traits.join(" · ")}</span>
+    <div class="list-row has-leading-icon" style="cursor: default;">
+      <div class="row-leading">
+        <span class="row-icon-badge" style="background: var(--system-teal);">
+          <span class="sf-symbol sf-list">${SF_SYMBOLS["person.fill"]}</span>
+        </span>
+        <div class="row-content">
+          <span class="row-title">${t.name}</span>
+          <span class="row-subtitle">${t.traits.join(" · ")}</span>
+        </div>
       </div>
-      <button class="btn glass-regular" style="width:auto;padding:8px 16px;margin:0;font-size:13px;color:var(--system-blue);" onclick="hireTalent('${t.name}')">邀請 (HK$3k)</button>
+      <button type="button" class="btn-glass interactive-glass" style="padding: 6px 14px; min-height: 36px; font: var(--type-subheadline); font-weight: 600;" onclick="hireTalent('${t.name}')">
+        邀請 (HK$3k)
+      </button>
     </div>
   `).join("");
 }
 
-window.buyAd = (cost) => {
-  if(wallet < cost) return alert("餘額不足！");
-  wallet -= cost; document.getElementById("walletBal").innerText = `HK$${wallet}`;
-  alert(`已扣除 HK$${cost}！`);
+window.buyAd = (cost, label) => {
+  if (wallet < cost) {
+    triggerHaptic('error');
+    return showBanner('餘額不足', '請先為廣告與系統錢包增值', 'xmark', 'var(--system-red)');
+  }
+  wallet -= cost;
+  document.getElementById("walletBal").innerText = `HK$${wallet.toLocaleString()}`;
+  triggerHaptic('success');
+  showBanner('付款成功', `已扣除 HK$${cost.toLocaleString()}（${label}）`, 'checkmark.circle.fill', 'var(--system-green)');
 };
 
 window.hireTalent = (name) => {
-  if(wallet < 3000) return alert("餘額不足！");
-  wallet -= 3000; document.getElementById("walletBal").innerText = `HK$${wallet}`;
-  alert(`已扣除 HK$3,000，向 ${name} 發出面試邀請！`);
+  if (wallet < 3000) {
+    triggerHaptic('error');
+    return showBanner('餘額不足', '招聘配對需要 HK$3,000 系統餘額', 'xmark', 'var(--system-red)');
+  }
+  wallet -= 3000;
+  document.getElementById("walletBal").innerText = `HK$${wallet.toLocaleString()}`;
+  triggerHaptic('success');
+  showBanner('面試邀請已發送', `已扣除 HK$3,000 並向 ${name} 發出面試邀請`, 'checkmark.circle.fill', 'var(--system-green)');
 };
 
-/* ================= Init ================= */
+/* ============================================================================
+   Bootstrap
+   ============================================================================ */
 window.addEventListener('DOMContentLoaded', () => {
+  renderIcons();
   initMap();
   renderChips();
   renderTip();

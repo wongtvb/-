@@ -111,17 +111,30 @@
     transform: translateY(calc(100% - 145px));
     transition: transform 0.4s var(--spring);
     z-index: 10; display: flex; flex-direction: column;
+    /* 允許原生滾動事件，唔再鎖死 */
+    touch-action: auto; 
   }
   .bottom-sheet.expanded { transform: translateY(0); }
   .bottom-sheet.expanded ~ #map { transform: scale(0.95); border-radius: 24px; }
 
-  .sheet-grabber-container {
-    padding: 12px 0 16px 0; display: flex; justify-content: center;
-    cursor: grab; touch-action: none; flex-shrink: 0;
+  .sheet-drag-area {
+    width: 100%;
+    padding: 12px 0 16px 0;
+    display: flex; flex-direction: column; align-items: center;
+    cursor: grab; flex-shrink: 0;
   }
-  .sheet-grabber { width: 36px; height: 5px; background: var(--separator); border-radius: 2.5px; }
-  .sheet-content { flex: 1; padding: 0 16px 100px 16px; overflow-y: hidden; }
-  .bottom-sheet.expanded .sheet-content { overflow-y: auto; }
+  
+  .sheet-grabber { width: 36px; height: 5px; background: var(--separator); border-radius: 2.5px; margin-bottom: 12px; }
+  .sheet-title { font-size: 22px; font-weight: 700; margin: 0; padding-left: 16px; align-self: flex-start; }
+
+  /* 允許原生平滑滾動 */
+  .sheet-content { 
+    flex: 1; 
+    padding: 0 16px 100px 16px; 
+    overflow-y: auto; 
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain; /* 防止滾動穿透到 background */
+  }
 
   /* =========================================
      Lists & Forms
@@ -172,11 +185,11 @@
   .tab-label { font-size: 10px; font-weight: 500; }
 
   /* =========================================
-     Restaurant Detail View (FLOATING CARD)
+     Restaurant Detail View
      ========================================= */
   .detail-backdrop {
     position: fixed; inset: 0;
-    background: rgba(0,0,0,0.4);
+    background: rgba(0, 0, 0, 0.1); /* 微暗 10% */
     z-index: 1999;
     opacity: 0; pointer-events: none;
     transition: opacity 0.4s;
@@ -184,32 +197,31 @@
   .detail-backdrop.active { opacity: 1; pointer-events: auto; }
 
   #detail-view {
-    position: fixed; 
-    top: 12vh; /* 留出 12% 給地圖 */
-    left: 0; right: 0; bottom: 0;
+    position: fixed; left: 0; right: 0; bottom: 0; height: 100vh;
     z-index: 2000;
     background: var(--system-background);
     border-radius: 24px 24px 0 0;
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.2);
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
     transform: translateY(100%);
-    transition: transform 0.45s var(--spring);
+    transition: transform 0.4s var(--spring);
     display: flex; flex-direction: column;
     overflow: hidden;
+    opacity: 0; pointer-events: none;
   }
-  #detail-view.active { transform: translateY(0); }
+  
+  #detail-view.active { transform: translateY(40vh); opacity: 1; pointer-events: auto; }
+  #detail-view.expanded { transform: translateY(0); }
 
-  /* 卡片頂部小橫線 */
-  .modal-grabber {
-    width: 36px; height: 5px; background: var(--separator);
-    border-radius: 2.5px; margin: 10px auto;
-    flex-shrink: 0;
+  .detail-drag-area {
+    width: 100%; padding: 10px 0 16px 0;
+    display: flex; justify-content: center;
+    flex-shrink: 0; touch-action: none; cursor: grab;
   }
+  .modal-grabber { width: 36px; height: 5px; background: var(--separator); border-radius: 2.5px; }
 
-  /* 頂部導航欄 */
   .detail-nav-bar {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px 16px 20px;
-    flex-shrink: 0;
+    padding: 0 20px 16px 20px; flex-shrink: 0;
   }
   
   .nav-btn-icon {
@@ -221,25 +233,17 @@
   
   .nav-title-text { font-size: 17px; font-weight: 600; }
 
-  /* 可滾動嘅主內容區 */
   .detail-scroll-area {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 100px; /* 留位俾底部 CTA */
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; padding-bottom: 100px;
+    overscroll-behavior-y: contain;
   }
 
   .detail-header { padding: 0 20px 20px 20px; }
   .detail-title { font-size: 34px; font-weight: 700; margin: 0 0 12px 0; line-height: 1.1; }
-  
   .tag-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .tag {
-    background: var(--tertiary-system-grouped-background); color: var(--label);
-    font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px;
-  }
+  .tag { background: var(--tertiary-system-grouped-background); color: var(--label); font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 999px; }
 
-  /* 資訊卡片 */
   .info-cards { display: flex; gap: 12px; padding: 0 20px; margin-bottom: 20px; }
   .info-card {
     flex: 1; background: var(--card-glass-bg);
@@ -250,7 +254,6 @@
   .info-card .val { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
   .info-card .sub { font-size: 13px; color: var(--secondary-label); }
 
-  /* 快捷按鈕 */
   .action-row { display: flex; justify-content: space-around; padding: 0 20px; margin-bottom: 24px; }
   .action-btn-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
   .action-btn {
@@ -262,7 +265,6 @@
   .action-btn:active { transform: scale(0.92); }
   .action-label { font-size: 12px; color: var(--label); }
 
-  /* 分段控制 */
   .segmented-control {
     display: flex; background: var(--tertiary-system-grouped-background);
     border-radius: 999px; padding: 4px; margin: 0 20px 20px 20px;
@@ -274,10 +276,8 @@
   }
   .seg-item.active { background: var(--system-background); color: var(--label); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 
-  /* 內容區 */
   .detail-body { padding: 0 20px; }
 
-  /* 底部固定按鈕 */
   .floating-cta {
     position: absolute; bottom: 0; left: 0; right: 0;
     padding: 16px 20px calc(24px + env(safe-area-inset-bottom)) 20px;
@@ -292,7 +292,6 @@
     box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
   }
 
-  /* Emoji Rating Grid */
   .emoji-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; padding-bottom: 8px; }
   .emoji-btn {
     font-size: 32px; padding: 12px; border-radius: 12px;
@@ -301,7 +300,6 @@
   }
   .emoji-btn.on { border-color: var(--system-blue); transform: scale(1.1); background: var(--system-background); }
 
-  /* 煙花 */
   .fireworks-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 50; }
   .firework-particle { position: absolute; font-size: 32px; animation: fly 1.4s var(--spring) forwards; }
   @keyframes fly { 0% { transform: translate(0,0) scale(.5); opacity: 1; } 100% { transform: translate(var(--x), var(--y)) scale(1.5); opacity: 0; } }
@@ -315,12 +313,12 @@
     <div class="nav-bar-title glass-regular">全港無障礙美食</div>
 
     <div class="bottom-sheet" id="rankSheet">
-      <div class="sheet-grabber-container" id="sheetGrabber">
+      <div class="sheet-drag-area" id="sheetDragArea">
         <div class="sheet-grabber"></div>
+        <h2 class="sheet-title">無障礙推薦榜</h2>
       </div>
-      <div class="sheet-content">
-        <h2 style="font-size: 22px; margin: 0 0 16px 0; padding-left: 16px;">無障礙推薦榜</h2>
-        <div class="inset-grouped-list" id="rankList"></div>
+      <div class="sheet-content" id="sheetContent">
+        <div class="inset-grouped-list" id="rankList" style="margin-top: 8px;"></div>
       </div>
     </div>
   </div>
@@ -420,22 +418,22 @@
   </nav>
 
   <!-- =========================================
-       餐廳詳情頁 (懸浮卡片)
+       餐廳詳情頁
        ========================================= -->
   <div class="detail-backdrop" id="detailBackdrop" onclick="closeDetail()"></div>
   
   <div id="detail-view">
-    <div class="modal-grabber"></div>
+    <div class="detail-drag-area" id="detailDragArea">
+      <div class="modal-grabber"></div>
+    </div>
     
-    <!-- 頂部導航欄 -->
     <div class="detail-nav-bar">
       <div class="nav-btn-icon" onclick="closeDetail()">⌄</div>
       <div class="nav-title-text" id="detailNavTitle">餐廳名稱</div>
       <div class="nav-btn-icon">􀈂</div>
     </div>
 
-    <!-- 可滾動區域 -->
-    <div class="detail-scroll-area">
+    <div class="detail-scroll-area" id="detailScrollArea">
       <div class="detail-header">
         <h1 class="detail-title" id="detailName">聰鳴茶座</h1>
         <div class="tag-row" id="detailTags"></div>
@@ -474,7 +472,6 @@
       </div>
 
       <div class="detail-body">
-        <!-- 簡介 Tab -->
         <div id="tab-overview">
           <div class="inset-grouped-list" style="margin:0;">
             <div class="list-row" style="cursor:default;">
@@ -492,13 +489,11 @@
           </div>
         </div>
 
-        <!-- 評分 Tab -->
         <div id="tab-rating" style="display:none;">
           <div id="ratingForm"></div>
           <button class="btn glass-prominent" style="margin-top:16px;" onclick="submitRating()">提交評分</button>
         </div>
 
-        <!-- 員工 Tab -->
         <div id="tab-staff" style="display:none;">
           <div class="inset-grouped-list" style="margin:0;">
             <div class="list-row">
@@ -513,7 +508,6 @@
       </div>
     </div>
 
-    <!-- 底部固定按鈕 -->
     <div class="floating-cta">
       <button class="cta-btn" id="actionNav">
         <span>􀙛</span> 規劃路線
@@ -546,6 +540,9 @@ let selectedGift = GIFTS[0];
 let map, mapInited = false;
 let currentRestaurant = null;
 const rankSheet = document.getElementById('rankSheet');
+const sheetContent = document.getElementById('sheetContent');
+const detailView = document.getElementById('detail-view');
+const detailBackdrop = document.getElementById('detailBackdrop');
 
 /* ================= Navigation ================= */
 function switchTab(el) {
@@ -567,9 +564,9 @@ function initMap(){
 
   restaurants.forEach(r=>{
     L.marker([r.lat,r.lng],{icon}).addTo(map).on('click', () => {
-      map.flyTo([r.lat, r.lng], 16, { duration: 0.8 });
       rankSheet.classList.remove('expanded');
       openDetail(r.id);
+      focusOnRestaurant(r.lat, r.lng);
     });
   });
   
@@ -578,7 +575,7 @@ function initMap(){
 
 function renderRank(){
   const html = [...restaurants].sort((a,b)=>b.score-a.score).map((r,i)=>`
-    <div class="list-row" onclick="map.flyTo([${r.lat}, ${r.lng}], 16, {duration: 0.8}); rankSheet.classList.remove('expanded'); openDetail('${r.id}');">
+    <div class="list-row" onclick="rankSheet.classList.remove('expanded'); openDetail('${r.id}'); focusOnRestaurant(${r.lat}, ${r.lng});">
       <div class="row-content">
         <span class="row-title">${i+1}. ${r.name}</span>
         <span class="row-subtitle">${r.district}</span>
@@ -590,6 +587,15 @@ function renderRank(){
     </div>
   `).join('');
   document.getElementById('rankList').innerHTML = html;
+}
+
+function focusOnRestaurant(lat, lng) {
+  const zoom = 16;
+  const point = map.project([lat, lng], zoom);
+  const offsetY = window.innerHeight * 0.3; 
+  const newPoint = point.add([0, offsetY]); 
+  const newLatLng = map.unproject(newPoint, zoom);
+  map.flyTo(newLatLng, zoom, { duration: 0.8 });
 }
 
 /* ================= 詳情頁邏輯 ================= */
@@ -623,14 +629,16 @@ function openDetail(id) {
   `).join('');
   document.getElementById('ratingForm').innerHTML = formHtml;
 
-  // 顯示卡片
-  document.getElementById('detailBackdrop').classList.add('active');
-  document.getElementById('detail-view').classList.add('active');
+  detailView.classList.remove('expanded');
+  detailBackdrop.classList.add('active');
+  detailView.classList.add('active');
 }
 
 function closeDetail() {
-  document.getElementById('detailBackdrop').classList.remove('active');
-  document.getElementById('detail-view').classList.remove('active');
+  detailBackdrop.classList.remove('active');
+  detailView.classList.remove('active');
+  detailView.classList.remove('expanded');
+  detailView.style.transform = '';
 }
 
 function switchDetailTab(el, tabId) {
@@ -656,33 +664,112 @@ function submitRating() {
   closeDetail();
 }
 
-/* ================= Bottom Sheet 拖拽 ================= */
-const sheetGrabber = document.getElementById('sheetGrabber');
+/* ================= Bottom Sheet 拖拽 (完美原生手感) ================= */
 let isDragging = false, startY = 0, startTransform = 0;
 
-sheetGrabber.addEventListener('pointerdown', (e) => {
-  isDragging = true; startY = e.clientY;
+// 喺成個 Panel 監聽 pointerdown
+rankSheet.addEventListener('pointerdown', (e) => {
+  // 如果係撳掣 (例如餐廳 Row)，就唔好觸發拖拽
+  if (e.target.closest('.list-row')) return; 
+  
+  startY = e.clientY;
   const style = window.getComputedStyle(rankSheet);
   startTransform = new DOMMatrixReadOnly(style.transform).m42 || 0;
-  rankSheet.style.transition = 'none'; e.preventDefault();
+
+  // 判斷：如果未展開，或者 (已展開且滾動條喺最頂)，先允許拖拽
+  if (!rankSheet.classList.contains('expanded') || sheetContent.scrollTop <= 0) {
+    isDragging = true;
+    rankSheet.style.transition = 'none';
+  }
 });
 
+// 喺 window 監聽 move (處理手勢衝突)
 window.addEventListener('pointermove', (e) => {
-  if (!isDragging) return; e.preventDefault();
+  if (!isDragging) return;
+  e.preventDefault();
+  
   let newY = startTransform + (e.clientY - startY);
   const maxY = window.innerHeight - 145;
   if (newY > maxY) newY = maxY;
   if (newY < 0) newY = 0;
+  
   rankSheet.style.transform = `translateY(${newY}px)`;
+}, { passive: false });
+
+window.addEventListener('pointerup', (e) => {
+  if (!isDragging) return;
+  isDragging = false;
+  rankSheet.style.transition = 'transform 0.4s var(--spring)';
+  rankSheet.style.transform = '';
+  
+  const deltaY = e.clientY - startY;
+  
+  if (deltaY < -50 || (deltaY < 20 && startTransform < window.innerHeight / 2)) {
+    rankSheet.classList.add('expanded');
+  } else if (deltaY > 50) {
+    rankSheet.classList.remove('expanded');
+  } else {
+    if (rankSheet.classList.contains('expanded')) rankSheet.classList.add('expanded');
+    else rankSheet.classList.remove('expanded');
+  }
+});
+
+/* ================= 詳情頁拖拽 ================= */
+const detailDragArea = document.getElementById('detailDragArea');
+const detailScrollArea = document.getElementById('detailScrollArea');
+let isDraggingDetail = false;
+let detailStartY = 0;
+let detailCurrentY = 0;
+const HALF_Y = window.innerHeight * 0.4;
+const FULL_Y = 0;
+
+detailDragArea.addEventListener('pointerdown', (e) => {
+  isDraggingDetail = true;
+  detailStartY = e.clientY;
+  const style = window.getComputedStyle(detailView);
+  detailCurrentY = new DOMMatrixReadOnly(style.transform).m42 || 0;
+  detailView.style.transition = 'none';
+  e.preventDefault();
+});
+
+detailScrollArea.addEventListener('pointerdown', (e) => {
+  if (detailScrollArea.scrollTop <= 0 && detailView.classList.contains('expanded')) {
+    isDraggingDetail = true;
+    detailStartY = e.clientY;
+    const style = window.getComputedStyle(detailView);
+    detailCurrentY = new DOMMatrixReadOnly(style.transform).m42 || 0;
+    detailView.style.transition = 'none';
+  }
+});
+
+window.addEventListener('pointermove', (e) => {
+  if (!isDraggingDetail) return;
+  e.preventDefault();
+  const deltaY = e.clientY - detailStartY;
+  let newY = detailCurrentY + deltaY;
+  
+  if (newY < FULL_Y) newY = FULL_Y;
+  if (newY > HALF_Y) newY = HALF_Y;
+  
+  detailView.style.transform = `translateY(${newY}px)`;
 });
 
 window.addEventListener('pointerup', (e) => {
-  if (!isDragging) return; isDragging = false;
-  rankSheet.style.transition = 'transform 0.4s var(--spring)';
-  rankSheet.style.transform = '';
-  const deltaY = e.clientY - startY;
-  if (deltaY < -50) rankSheet.classList.add('expanded');
-  else if (deltaY > 50) rankSheet.classList.remove('expanded');
+  if (!isDraggingDetail) return;
+  isDraggingDetail = false;
+  detailView.style.transition = 'transform 0.4s var(--spring)';
+  detailView.style.transform = '';
+  
+  const deltaY = e.clientY - detailStartY;
+  
+  if (deltaY < -50 || (deltaY < 20 && detailCurrentY < HALF_Y / 2)) {
+    detailView.classList.add('expanded');
+  } else if (deltaY > 50) {
+    detailView.classList.remove('expanded');
+  } else {
+    if (detailView.classList.contains('expanded')) detailView.classList.add('expanded');
+    else detailView.classList.remove('expanded');
+  }
 });
 
 /* ================= Recruit Tab ================= */

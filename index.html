@@ -3,12 +3,17 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>無障礙美食地圖</title>
+<title>Silent Connect</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- 引入 MediaPipe 手部追蹤模型 -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
 <style>
   /* =========================================
-     iOS 27 Design System
+     iOS 27 Design System (Liquid Glass & HIG)
      ========================================= */
   :root {
     --system-background: #F2F2F7;
@@ -19,8 +24,10 @@
     --separator: rgba(60, 60, 67, 0.29);
     --system-blue: #007AFF;
     --system-green: #34C759;
+    --system-red: #FF3B30;
     --system-pink: #FF2D55;
     --system-orange: #FF9500;
+    --system-purple: #AF52DE;
     
     --glass-bg: rgba(255, 255, 255, 0.7);
     --glass-border: rgba(255, 255, 255, 0.5);
@@ -39,6 +46,8 @@
       --label: #FFFFFF;
       --secondary-label: rgba(235, 235, 245, 0.6);
       --separator: rgba(84, 84, 88, 0.6);
+      --system-green: #30D158;
+      --system-red: #FF453A;
       
       --glass-bg: rgba(30, 30, 30, 0.6);
       --glass-border: rgba(255, 255, 255, 0.15);
@@ -47,10 +56,7 @@
     }
   }
 
-  * {
-    box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
-  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
   html, body {
     margin: 0; padding: 0;
@@ -59,8 +65,7 @@
     color: var(--label);
     width: 100vw; height: 100vh;
     position: fixed; top: 0; left: 0;
-    overflow: hidden;
-    overscroll-behavior: none;
+    overflow: hidden; overscroll-behavior: none;
     user-select: none; -webkit-user-select: none;
   }
 
@@ -69,12 +74,10 @@
      ========================================= */
   .glass-regular {
     background: var(--glass-bg);
-    backdrop-filter: blur(24px) saturate(200%);
-    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    backdrop-filter: blur(24px) saturate(200%); -webkit-backdrop-filter: blur(24px) saturate(200%);
     border: 0.5px solid var(--glass-border);
     box-shadow: var(--glass-shadow), var(--glass-highlight);
-    border-radius: 999px;
-    transition: transform 0.2s var(--spring);
+    border-radius: 999px; transition: transform 0.2s var(--spring);
     touch-action: manipulation;
   }
   .glass-regular:active { transform: scale(0.96); }
@@ -83,8 +86,7 @@
     position: absolute; inset: 0; padding-bottom: 100px;
     overflow-y: auto; overflow-x: hidden;
     opacity: 0; pointer-events: none;
-    transition: opacity 0.3s var(--spring);
-    z-index: 1;
+    transition: opacity 0.3s var(--spring); z-index: 1;
   }
   .view-container.active { opacity: 1; pointer-events: auto; z-index: 2; }
 
@@ -92,8 +94,7 @@
      Map & Bottom Sheet
      ========================================= */
   #map {
-    width: 100%; height: 100%;
-    position: absolute; inset: 0; z-index: 0;
+    width: 100%; height: 100%; position: absolute; inset: 0; z-index: 0;
     transition: transform 0.4s var(--spring), border-radius 0.4s var(--spring);
   }
 
@@ -111,15 +112,13 @@
     transform: translateY(calc(100% - 145px));
     transition: transform 0.4s var(--spring);
     z-index: 10; display: flex; flex-direction: column;
-    /* 允許原生滾動事件，唔再鎖死 */
     touch-action: auto; 
   }
   .bottom-sheet.expanded { transform: translateY(0); }
   .bottom-sheet.expanded ~ #map { transform: scale(0.95); border-radius: 24px; }
 
   .sheet-drag-area {
-    width: 100%;
-    padding: 12px 0 16px 0;
+    width: 100%; padding: 12px 0 16px 0;
     display: flex; flex-direction: column; align-items: center;
     cursor: grab; flex-shrink: 0;
   }
@@ -127,14 +126,7 @@
   .sheet-grabber { width: 36px; height: 5px; background: var(--separator); border-radius: 2.5px; margin-bottom: 12px; }
   .sheet-title { font-size: 22px; font-weight: 700; margin: 0; padding-left: 16px; align-self: flex-start; }
 
-  /* 允許原生平滑滾動 */
-  .sheet-content { 
-    flex: 1; 
-    padding: 0 16px 100px 16px; 
-    overflow-y: auto; 
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain; /* 防止滾動穿透到 background */
-  }
+  .sheet-content { flex: 1; padding: 0 16px 100px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
 
   /* =========================================
      Lists & Forms
@@ -152,12 +144,6 @@
   .row-title { font-size: 17px; color: var(--label); font-weight: 500; }
   .row-subtitle { font-size: 13px; color: var(--secondary-label); }
   .row-value { font-size: 17px; color: var(--secondary-label); display: flex; align-items: center; gap: 8px; }
-
-  .form-section { margin-bottom: 24px; }
-  .input-field { width: 100%; padding: 12px 16px; font-size: 17px; background: var(--secondary-system-grouped-background); border: none; color: var(--label); outline: none; }
-  .chips-container { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; background: var(--secondary-system-grouped-background); border-radius: 12px; margin: 0 16px; }
-  .chip { padding: 8px 16px; border-radius: 999px; font-size: 15px; background: var(--tertiary-system-grouped-background); color: var(--label); border: 1px solid transparent; cursor: pointer; transition: all 0.2s; }
-  .chip.on { background: var(--system-blue); color: #FFF; }
 
   .btn {
     display: flex; align-items: center; justify-content: center; width: 100%;
@@ -188,24 +174,17 @@
      Restaurant Detail View
      ========================================= */
   .detail-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(0, 0, 0, 0.1); /* 微暗 10% */
-    z-index: 1999;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.4s;
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.1);
+    z-index: 1999; opacity: 0; pointer-events: none; transition: opacity 0.4s;
   }
   .detail-backdrop.active { opacity: 1; pointer-events: auto; }
 
   #detail-view {
     position: fixed; left: 0; right: 0; bottom: 0; height: 100vh;
-    z-index: 2000;
-    background: var(--system-background);
-    border-radius: 24px 24px 0 0;
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
-    transform: translateY(100%);
-    transition: transform 0.4s var(--spring);
-    display: flex; flex-direction: column;
-    overflow: hidden;
+    z-index: 2000; background: var(--system-background);
+    border-radius: 24px 24px 0 0; box-shadow: 0 -8px 32px rgba(0,0,0,0.15);
+    transform: translateY(100%); transition: transform 0.4s var(--spring);
+    display: flex; flex-direction: column; overflow: hidden;
     opacity: 0; pointer-events: none;
   }
   
@@ -235,8 +214,7 @@
 
   .detail-scroll-area {
     flex: 1; overflow-y: auto; overflow-x: hidden;
-    -webkit-overflow-scrolling: touch; padding-bottom: 100px;
-    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch; padding-bottom: 100px; overscroll-behavior-y: contain;
   }
 
   .detail-header { padding: 0 20px 20px 20px; }
@@ -300,8 +278,54 @@
   }
   .emoji-btn.on { border-color: var(--system-blue); transform: scale(1.1); background: var(--system-background); }
 
-  .fireworks-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 50; }
-  .firework-particle { position: absolute; font-size: 32px; animation: fly 1.4s var(--spring) forwards; }
+  /* =========================================
+     Double-Way Comm Modal (終極雙向溝通)
+     ========================================= */
+  #comm-modal {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.95); backdrop-filter: blur(15px);
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 40px 20px 20px 20px;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  #comm-modal.active { opacity: 1; pointer-events: auto; }
+  
+  .comm-header {
+    color: #fff; font-size: 18px; font-weight: 700; margin-bottom: 20px;
+    display: flex; justify-content: space-between; width: 100%; align-items: center;
+  }
+  .comm-close { background: rgba(255,255,255,0.2); border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; }
+
+  /* 手語識別區 */
+  .camera-container {
+    position: relative; width: 100%; height: 35vh;
+    background: #111; border-radius: 20px; overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.2);
+  }
+  .camera-container video { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .camera-container canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  
+  .gesture-result {
+    margin-top: 10px; font-size: 32px; font-weight: 800; color: var(--system-green);
+    height: 50px; text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center; width: 100%;
+  }
+
+  /* 語音字幕區 */
+  .speech-container {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px; padding: 15px; width: 100%; margin-top: 15px;
+    flex: 1; display: flex; flex-direction: column;
+  }
+  .speech-label { color: var(--system-blue); font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .speech-text {
+    color: #fff; font-size: 24px; font-weight: 600; line-height: 1.4;
+    display: flex; align-items: flex-start; flex: 1;
+  }
+
+  /* 煙花 */
+  .fireworks-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 2500; }
+  .firework-particle { position: absolute; font-size: 40px; animation: fly 1.4s var(--spring) forwards; }
   @keyframes fly { 0% { transform: translate(0,0) scale(.5); opacity: 1; } 100% { transform: translate(var(--x), var(--y)) scale(1.5); opacity: 0; } }
 </style>
 </head>
@@ -310,7 +334,7 @@
   <!-- 1. MAP TAB -->
   <div id="view-map" class="view-container active" style="padding-bottom: 0;">
     <div id="map"></div>
-    <div class="nav-bar-title glass-regular">全港無障礙美食</div>
+    <div class="nav-bar-title glass-regular">Silent Connect</div>
 
     <div class="bottom-sheet" id="rankSheet">
       <div class="sheet-drag-area" id="sheetDragArea">
@@ -327,26 +351,6 @@
   <div id="view-recruit" class="view-container">
     <h1 style="padding: 24px 16px 8px 16px; margin:0; font-size: 34px; font-weight:700;">聽障招聘</h1>
     <p style="padding: 0 16px 16px; color: var(--secondary-label); font-size: 15px; margin: 0;">系統自動配對無障礙工作崗位。</p>
-
-    <div class="form-section">
-      <div class="list-header">基本資料</div>
-      <div class="inset-grouped-list">
-        <div class="list-row" style="margin: 0; padding: 0 16px;">
-          <input type="text" class="input-field" id="seekerName" placeholder="輸入姓名" value="陳小姐">
-        </div>
-      </div>
-    </div>
-    <div class="form-section">
-      <div class="list-header">擅長嘅工作特質</div>
-      <div class="chips-container" id="traitChips"></div>
-    </div>
-    <div class="form-section">
-      <div class="list-header">偏好崗位類型</div>
-      <div class="chips-container" id="typeChips"></div>
-    </div>
-    <div style="padding: 0 16px;">
-      <button class="btn glass-prominent" onclick="runMatching()">開始配對</button>
-    </div>
     <div id="matchResults" style="padding: 16px;"></div>
   </div>
 
@@ -356,49 +360,12 @@
     <div class="inset-grouped-list" style="margin-bottom: 24px;">
       <div class="list-row" style="cursor: default;">
         <div class="row-content">
-          <span class="row-title" id="staffName">阿明</span>
-          <span class="row-subtitle" id="staffMeta">聰鳴茶座 · 水吧</span>
+          <span class="row-title">阿明</span>
+          <span class="row-subtitle">聰鳴茶座 · 水吧</span>
         </div>
         <div class="row-value" style="color: var(--system-green); font-weight: 600;" id="staffTotal">HK$320</div>
       </div>
     </div>
-    <div class="list-header">選擇虛擬禮物</div>
-    <div class="inset-grouped-list" id="giftList"></div>
-    <div style="padding: 16px;">
-      <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--secondary-label); margin-bottom: 16px;">
-        <span>平台手續費 (5%)</span>
-        <span id="feeText">HK$0.00</span>
-      </div>
-      <button class="btn glass-prominent" style="background: var(--system-pink); box-shadow: 0 4px 16px rgba(255, 45, 85, 0.3);" onclick="sendTip()">送出打賞 🎆</button>
-    </div>
-    <div class="fireworks-container" id="fx"></div>
-  </div>
-
-  <!-- 4. B2B TAB -->
-  <div id="view-b2b" class="view-container">
-    <h1 style="padding: 24px 16px 8px 16px; margin:0; font-size: 34px; font-weight:700;">餐廳後台</h1>
-    <div class="inset-grouped-list" style="margin-bottom: 24px;">
-      <div class="list-row" style="cursor: default;">
-        <div class="row-content">
-          <span class="row-title">廣告與招聘錢包</span>
-          <span class="row-subtitle">可用餘額</span>
-        </div>
-        <div class="row-value" id="walletBal" style="font-size: 20px; font-weight: 600; color: var(--label);">HK$10,000</div>
-      </div>
-    </div>
-    <div class="list-header">推廣費 (Promotion Fee)</div>
-    <div class="inset-grouped-list" style="margin-bottom: 24px;">
-      <div class="list-row" onclick="buyAd(500)">
-        <span class="row-title" style="color: var(--system-blue);">買推薦榜 Top 1 一週</span>
-        <span class="row-value">HK$500</span>
-      </div>
-      <div class="list-row" onclick="buyAd(100)">
-        <span class="row-title" style="color: var(--system-blue);">派 $10 優惠券 x10</span>
-        <span class="row-value">HK$100</span>
-      </div>
-    </div>
-    <div class="list-header">招聘配對 (Recruitment Fee)</div>
-    <div class="inset-grouped-list" id="b2bTalents"></div>
   </div>
 
   <!-- Tab Bar -->
@@ -411,9 +378,6 @@
     </div>
     <div class="tab-item" data-target="view-tip" onclick="switchTab(this)">
       <span class="tab-icon">🎆</span><span class="tab-label">打賞</span>
-    </div>
-    <div class="tab-item" data-target="view-b2b" onclick="switchTab(this)">
-      <span class="tab-icon">💼</span><span class="tab-label">後台</span>
     </div>
   </nav>
 
@@ -441,7 +405,7 @@
 
       <div class="info-cards">
         <div class="info-card">
-          <div class="val" id="detailScore" style="color: var(--system-orange);">4.9 ★★★★★</div>
+          <div class="val" style="color: var(--system-orange);">4.9 ★★★★★</div>
           <div class="sub">1,248 則評價</div>
         </div>
         <div class="info-card">
@@ -450,58 +414,25 @@
         </div>
       </div>
 
+      <!-- 核心功能按鈕 -->
       <div class="action-row">
+        <div class="action-btn-wrapper" onclick="openComm()">
+          <div class="action-btn" style="color: var(--system-blue);">🤟</div><span class="action-label">雙向溝通</span>
+        </div>
+        <div class="action-btn-wrapper" onclick="alert('已呼叫服務！')">
+          <div class="action-btn" style="color: var(--system-green);">🔔</div><span class="action-label">呼叫服務</span>
+        </div>
         <div class="action-btn-wrapper" id="actionCall">
           <div class="action-btn">📞</div><span class="action-label">致電</span>
         </div>
-        <div class="action-btn-wrapper" onclick="alert('已加入收藏')">
-          <div class="action-btn">🔖</div><span class="action-label">收藏</span>
-        </div>
-        <div class="action-btn-wrapper" onclick="alert('分享連結已複製')">
-          <div class="action-btn">📤</div><span class="action-label">分享</span>
-        </div>
-        <div class="action-btn-wrapper" onclick="alert('前往官方網站')">
-          <div class="action-btn">🌐</div><span class="action-label">網站</span>
-        </div>
-      </div>
-
-      <div class="segmented-control">
-        <div class="seg-item active" onclick="switchDetailTab(this, 'tab-overview')">簡介</div>
-        <div class="seg-item" onclick="switchDetailTab(this, 'tab-rating')">評分</div>
-        <div class="seg-item" onclick="switchDetailTab(this, 'tab-staff')">員工</div>
       </div>
 
       <div class="detail-body">
-        <div id="tab-overview">
-          <div class="inset-grouped-list" style="margin:0;">
-            <div class="list-row" style="cursor:default;">
-              <div class="row-content">
-                <span class="row-title">無障礙設施</span>
-                <span class="row-subtitle">入口平坦 · 光線充足 · 提供手語餐牌</span>
-              </div>
-            </div>
-            <div class="list-row" style="cursor:default;">
-              <div class="row-content">
-                <span class="row-title">聽障員工比例</span>
-                <span class="row-subtitle">50% 前線員工為聽障人士</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div id="tab-rating" style="display:none;">
-          <div id="ratingForm"></div>
-          <button class="btn glass-prominent" style="margin-top:16px;" onclick="submitRating()">提交評分</button>
-        </div>
-
-        <div id="tab-staff" style="display:none;">
-          <div class="inset-grouped-list" style="margin:0;">
-            <div class="list-row">
-              <div class="row-content">
-                <span class="row-title">阿明 (水吧)</span>
-                <span class="row-subtitle">擅長：視覺指示 · 專注</span>
-              </div>
-              <button class="btn glass-regular" style="width:auto;padding:6px 12px;margin:0;font-size:13px;color:var(--system-pink);" onclick="alert('已送出打賞！')">打賞 🎆</button>
+        <div class="inset-grouped-list" style="margin:0;">
+          <div class="list-row" style="cursor:default;">
+            <div class="row-content">
+              <span class="row-title">無障礙設施</span>
+              <span class="row-subtitle">入口平坦 · 光線充足 · 提供手語餐牌</span>
             </div>
           </div>
         </div>
@@ -515,6 +446,30 @@
     </div>
   </div>
 
+  <!-- =========================================
+       終極雙向溝通 Modal (手語 + 語音)
+       ========================================= -->
+  <div id="comm-modal">
+    <div class="comm-header">
+      <span>🤟 雙向溝通 (手語識別 + 語音字幕)</span>
+      <button class="comm-close" onclick="closeComm()">✕</button>
+    </div>
+    
+    <!-- 上半部：手語鏡頭 -->
+    <div class="camera-container">
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="output_canvas"></canvas>
+    </div>
+    <!-- 手語辨識結果 -->
+    <div class="gesture-result" id="gestureResult">請對鏡頭比手勢...</div>
+
+    <!-- 下半部：語音字幕 -->
+    <div class="speech-container">
+      <div class="speech-label">🎤 店員語音即時字幕</div>
+      <div class="speech-text" id="speechText">正在聆聽...</div>
+    </div>
+  </div>
+
 <script>
 document.addEventListener('dragstart', e => e.preventDefault());
 document.addEventListener('selectstart', e => e.preventDefault());
@@ -523,22 +478,8 @@ document.addEventListener('selectstart', e => e.preventDefault());
 const restaurants = [
   { id:"r1", name:"聰鳴茶座", district:"將軍澳", lat:22.3075, lng:114.2602, score:92, phone:"+852 1234 5678", tags:["社企","手語支援"] },
   { id:"r2", name:"樂農", district:"灣仔", lat:22.2775, lng:114.1733, score:90, phone:"+852 8765 4321", tags:["社企","圖示餐牌"] },
-  { id:"r3", name:"太興", district:"旺角", lat:22.3193, lng:114.1694, score:78, phone:"+852 1111 2222", tags:["連鎖","聽障員工"] },
-  { id:"r5", name:"靜·咖啡", district:"中環", lat:22.2819, lng:114.1582, score:86, phone:"+852 3333 4444", tags:["安靜","手語支援"] },
 ];
 
-const jobs = [
-  { id:"j1", restaurantName:"聰鳴茶座", title:"水吧助理", type:"水吧", traits:["重複性工作","專注","視覺指示"] },
-  { id:"j2", restaurantName:"太興", title:"備餐員", type:"備餐", traits:["重複性工作","專注","圖示SOP"] },
-  { id:"j3", restaurantName:"靜·咖啡", title:"咖啡師學徒", type:"水吧", traits:["專注","視覺指示","手語溝通"] },
-];
-
-const GIFTS = [{e:"☕",l:"請飲咖啡",a:20},{e:"🍰",l:"請食蛋糕",a:50},{e:"🌟",l:"超級星星",a:100}];
-let selectedGift = GIFTS[0];
-
-/* ================= 全局變數 ================= */
-let map, mapInited = false;
-let currentRestaurant = null;
 const rankSheet = document.getElementById('rankSheet');
 const sheetContent = document.getElementById('sheetContent');
 const detailView = document.getElementById('detail-view');
@@ -551,13 +492,11 @@ function switchTab(el) {
   const targetId = el.getAttribute('data-target');
   document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
   document.getElementById(targetId).classList.add('active');
-  if(targetId === 'view-map' && map) setTimeout(() => map.invalidateSize(), 300);
 }
 
-/* ================= Map ================= */
+/* ================= Map & Sheet ================= */
 function initMap(){
-  mapInited = true;
-  map = L.map('map', { zoomControl: false }).setView([22.31,114.17], 12);
+  const map = L.map('map', { zoomControl: false }).setView([22.31,114.17], 12);
   L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { subdomains: ['1','2','3','4'] }).addTo(map);
   
   const icon = L.divIcon({ html:'<div style="background:#007AFF;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>', className:"", iconSize:[20,20] });
@@ -566,68 +505,30 @@ function initMap(){
     L.marker([r.lat,r.lng],{icon}).addTo(map).on('click', () => {
       rankSheet.classList.remove('expanded');
       openDetail(r.id);
-      focusOnRestaurant(r.lat, r.lng);
+      // 智能定位
+      const zoom = 16;
+      const point = map.project([r.lat, r.lng], zoom);
+      const newPoint = point.add([0, window.innerHeight * 0.3]); 
+      map.flyTo(map.unproject(newPoint, zoom), zoom, { duration: 0.8 });
     });
   });
   
-  renderRank();
-}
-
-function renderRank(){
   const html = [...restaurants].sort((a,b)=>b.score-a.score).map((r,i)=>`
-    <div class="list-row" onclick="rankSheet.classList.remove('expanded'); openDetail('${r.id}'); focusOnRestaurant(${r.lat}, ${r.lng});">
-      <div class="row-content">
-        <span class="row-title">${i+1}. ${r.name}</span>
-        <span class="row-subtitle">${r.district}</span>
-      </div>
-      <div class="row-value">
-        <span style="color:var(--system-blue);font-weight:600;">${r.score}</span>
-        <span class="chevron">›</span>
-      </div>
+    <div class="list-row" onclick="rankSheet.classList.remove('expanded'); openDetail('${r.id}');">
+      <div class="row-content"><span class="row-title">${i+1}. ${r.name}</span><span class="row-subtitle">${r.district}</span></div>
+      <div class="row-value"><span style="color:var(--system-blue);font-weight:600;">${r.score}</span></div>
     </div>
   `).join('');
   document.getElementById('rankList').innerHTML = html;
 }
 
-function focusOnRestaurant(lat, lng) {
-  const zoom = 16;
-  const point = map.project([lat, lng], zoom);
-  const offsetY = window.innerHeight * 0.3; 
-  const newPoint = point.add([0, offsetY]); 
-  const newLatLng = map.unproject(newPoint, zoom);
-  map.flyTo(newLatLng, zoom, { duration: 0.8 });
-}
-
-/* ================= 詳情頁邏輯 ================= */
-const DIMS = [
-  { key:"staffFriendliness", label:"店員態度友善度", emojis:["😐","🙂","😊","🤝","🌟"] },
-  { key:"lighting", label:"光線夠唔夠睇口型", emojis:["🌑","🌒","🌓","🌔","💡"] },
-  { key:"noise", label:"環境安靜程度", emojis:["📢","🔉","🔈","🔇","🤫"] },
-];
-
 function openDetail(id) {
-  currentRestaurant = restaurants.find(x => x.id === id);
-  if(!currentRestaurant) return;
-  
-  document.getElementById('detailName').innerText = currentRestaurant.name;
-  document.getElementById('detailNavTitle').innerText = currentRestaurant.name;
-  document.getElementById('detailScore').innerHTML = `4.9 <span style="font-size:16px;">★★★★★</span>`;
-  document.getElementById('detailTags').innerHTML = currentRestaurant.tags.map(t => `<span class="tag">♿ ${t}</span>`).join('');
-
-  document.getElementById('actionCall').onclick = () => window.location.href = `tel:${currentRestaurant.phone}`;
-  document.getElementById('actionNav').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentRestaurant.lat},${currentRestaurant.lng}`, '_blank');
-
-  const formHtml = DIMS.map(d => `
-    <div style="margin-bottom: 24px;">
-      <div style="font-size:15px; font-weight:600; margin-bottom:8px;">${d.label}</div>
-      <div class="emoji-row">
-        ${d.emojis.map((e, i) => `
-          <button class="emoji-btn" onclick="selectEmoji(this)">${e}</button>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
-  document.getElementById('ratingForm').innerHTML = formHtml;
+  const r = restaurants.find(x => x.id === id);
+  document.getElementById('detailName').innerText = r.name;
+  document.getElementById('detailNavTitle').innerText = r.name;
+  document.getElementById('detailTags').innerHTML = r.tags.map(t => `<span class="tag">♿ ${t}</span>`).join('');
+  document.getElementById('actionCall').onclick = () => window.location.href = `tel:${r.phone}`;
+  document.getElementById('actionNav').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`, '_blank');
 
   detailView.classList.remove('expanded');
   detailBackdrop.classList.add('active');
@@ -638,254 +539,196 @@ function closeDetail() {
   detailBackdrop.classList.remove('active');
   detailView.classList.remove('active');
   detailView.classList.remove('expanded');
-  detailView.style.transform = '';
 }
 
-function switchDetailTab(el, tabId) {
-  document.querySelectorAll('.seg-item').forEach(i => i.classList.remove('active'));
-  el.classList.add('active');
-  document.querySelectorAll('#detail-view .detail-body > div').forEach(d => d.style.display = 'none');
-  document.getElementById(tabId).style.display = 'block';
+/* ================= 終極雙向溝通功能 (語音 + 手語) ================= */
+let recognition;
+let handCamera = null;
+let isCommOpen = false;
+
+// 1. 初始化語音辨識 (Web Speech API)
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'zh-HK'; 
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.onresult = (event) => {
+    let finalTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      finalTranscript += event.results[i][0].transcript;
+    }
+    if (finalTranscript) document.getElementById('speechText').innerText = finalTranscript;
+  };
 }
 
-function selectEmoji(btn) {
-  const row = btn.parentElement;
-  row.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-}
+// 2. 初始化手語辨識 (MediaPipe Hands)
+const videoElement = document.getElementById('webcam');
+const canvasElement = document.getElementById('output_canvas');
+const canvasCtx = canvasElement.getContext('2d');
+let lastGesture = "";
 
-function submitRating() {
-  if(!currentRestaurant) return;
-  const key = `rating_${currentRestaurant.id}`;
-  const prev = JSON.parse(localStorage.getItem(key) || "[]");
-  prev.push({ at: Date.now() });
-  localStorage.setItem(key, JSON.stringify(prev));
-  alert(`多謝你嘅評分！🙌\n已成功提交對「${currentRestaurant.name}」嘅評價。`);
-  closeDetail();
-}
-
-/* ================= Bottom Sheet 拖拽 (完美原生手感) ================= */
-let isDragging = false, startY = 0, startTransform = 0;
-
-// 喺成個 Panel 監聽 pointerdown
-rankSheet.addEventListener('pointerdown', (e) => {
-  // 如果係撳掣 (例如餐廳 Row)，就唔好觸發拖拽
-  if (e.target.closest('.list-row')) return; 
+// 簡單手勢判斷邏輯
+function detectGesture(landmarks) {
+  // 計算手指是否伸直 (Y軸向下為正)
+  const isFingerStraight = (tipIdx, pipIdx) => landmarks[tipIdx].y < landmarks[pipIdx].y;
   
-  startY = e.clientY;
-  const style = window.getComputedStyle(rankSheet);
-  startTransform = new DOMMatrixReadOnly(style.transform).m42 || 0;
+  const indexStraight = isFingerStraight(8, 6);
+  const middleStraight = isFingerStraight(12, 10);
+  const ringStraight = isFingerStraight(16, 14);
+  const pinkyStraight = isFingerStraight(20, 18);
+  const thumbStraight = landmarks[4].x < landmarks[3].x; // 粗略判斷大拇指
 
-  // 判斷：如果未展開，或者 (已展開且滾動條喺最頂)，先允許拖拽
+  const straightCount = [indexStraight, middleStraight, ringStraight, pinkyStraight].filter(Boolean).length;
+
+  if (straightCount === 4 && thumbStraight) return "👋 你好 / 需要幫忙";
+  if (straightCount === 0 && !thumbStraight) return "✊ 停止 / 不需要";
+  if (straightCount === 1 && indexStraight && !middleStraight) return "☝️ 等一下 / 有問題";
+  if (straightCount === 0 && thumbStraight) return "👍 多謝 / 讚好";
+  if (straightCount >= 3) return "🙌 謝謝你";
+  return null;
+}
+
+function onResults(results) {
+  canvasElement.width = videoElement.videoWidth;
+  canvasElement.height = videoElement.videoHeight;
+  canvasCtx.save();
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+  if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+    for (const landmarks of results.multiHandLandmarks) {
+      // 畫手部骨架
+      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#007AFF', lineWidth: 4});
+      drawLandmarks(canvasCtx, landmarks, {color: '#FFFFFF', lineWidth: 2, radius: 3});
+    }
+    
+    // 辨識結果
+    const gesture = detectGesture(results.multiHandLandmarks[0]);
+    if (gesture && gesture !== lastGesture) {
+      lastGesture = gesture;
+      const resDiv = document.getElementById('gestureResult');
+      resDiv.innerText = gesture;
+      resDiv.style.transform = 'scale(1.1)';
+      setTimeout(() => resDiv.style.transform = 'scale(1)', 200);
+      // 可選：用語音朗讀出嚟
+      // let utterance = new SpeechSynthesisUtterance(gesture);
+      // window.speechSynthesis.speak(utterance);
+    }
+  } else {
+    if (lastGesture !== "") {
+      lastGesture = "";
+      document.getElementById('gestureResult').innerText = "請對鏡頭比手勢...";
+    }
+  }
+  canvasCtx.restore();
+}
+
+function openComm() {
+  isCommOpen = true;
+  document.getElementById('comm-modal').classList.add('active');
+  
+  // 啟動語音
+  if (recognition) {
+    try { recognition.start(); } catch(e) {}
+  }
+
+  // 啟動鏡頭及手語追蹤
+  const hands = new Hands({locateFile: (file) => {
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+  }});
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7
+  });
+  hands.onResults(onResults);
+
+  handCamera = new Camera(videoElement, {
+    onFrame: async () => {
+      await hands.send({image: videoElement});
+    },
+    width: 640,
+    height: 480
+  });
+  handCamera.start();
+}
+
+function closeComm() {
+  isCommOpen = false;
+  document.getElementById('comm-modal').classList.remove('active');
+  
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
+  }
+  if (handCamera) {
+    handCamera.stop();
+  }
+  document.getElementById('gestureResult').innerText = "請對鏡頭比手勢...";
+  document.getElementById('speechText').innerText = "正在聆聽...";
+}
+
+/* ================= Sheet 拖拽 ================= */
+let isDragging = false, startY = 0, startTransform = 0;
+rankSheet.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.list-row')) return; 
+  startY = e.clientY;
+  startTransform = new DOMMatrixReadOnly(window.getComputedStyle(rankSheet).transform).m42 || 0;
   if (!rankSheet.classList.contains('expanded') || sheetContent.scrollTop <= 0) {
-    isDragging = true;
-    rankSheet.style.transition = 'none';
+    isDragging = true; rankSheet.style.transition = 'none';
   }
 });
-
-// 喺 window 監聽 move (處理手勢衝突)
 window.addEventListener('pointermove', (e) => {
-  if (!isDragging) return;
-  e.preventDefault();
-  
+  if (!isDragging) return; e.preventDefault();
   let newY = startTransform + (e.clientY - startY);
   const maxY = window.innerHeight - 145;
   if (newY > maxY) newY = maxY;
   if (newY < 0) newY = 0;
-  
   rankSheet.style.transform = `translateY(${newY}px)`;
 }, { passive: false });
-
 window.addEventListener('pointerup', (e) => {
-  if (!isDragging) return;
-  isDragging = false;
+  if (!isDragging) return; isDragging = false;
   rankSheet.style.transition = 'transform 0.4s var(--spring)';
   rankSheet.style.transform = '';
-  
   const deltaY = e.clientY - startY;
-  
-  if (deltaY < -50 || (deltaY < 20 && startTransform < window.innerHeight / 2)) {
-    rankSheet.classList.add('expanded');
-  } else if (deltaY > 50) {
-    rankSheet.classList.remove('expanded');
-  } else {
-    if (rankSheet.classList.contains('expanded')) rankSheet.classList.add('expanded');
-    else rankSheet.classList.remove('expanded');
-  }
+  if (deltaY < -50 || (deltaY < 20 && startTransform < window.innerHeight / 2)) rankSheet.classList.add('expanded');
+  else if (deltaY > 50) rankSheet.classList.remove('expanded');
 });
 
 /* ================= 詳情頁拖拽 ================= */
 const detailDragArea = document.getElementById('detailDragArea');
 const detailScrollArea = document.getElementById('detailScrollArea');
-let isDraggingDetail = false;
-let detailStartY = 0;
-let detailCurrentY = 0;
-const HALF_Y = window.innerHeight * 0.4;
-const FULL_Y = 0;
+let isDraggingDetail = false, detailStartY = 0, detailCurrentY = 0;
 
 detailDragArea.addEventListener('pointerdown', (e) => {
-  isDraggingDetail = true;
-  detailStartY = e.clientY;
-  const style = window.getComputedStyle(detailView);
-  detailCurrentY = new DOMMatrixReadOnly(style.transform).m42 || 0;
-  detailView.style.transition = 'none';
-  e.preventDefault();
+  isDraggingDetail = true; detailStartY = e.clientY;
+  detailCurrentY = new DOMMatrixReadOnly(window.getComputedStyle(detailView).transform).m42 || 0;
+  detailView.style.transition = 'none'; e.preventDefault();
 });
-
 detailScrollArea.addEventListener('pointerdown', (e) => {
   if (detailScrollArea.scrollTop <= 0 && detailView.classList.contains('expanded')) {
-    isDraggingDetail = true;
-    detailStartY = e.clientY;
-    const style = window.getComputedStyle(detailView);
-    detailCurrentY = new DOMMatrixReadOnly(style.transform).m42 || 0;
+    isDraggingDetail = true; detailStartY = e.clientY;
+    detailCurrentY = new DOMMatrixReadOnly(window.getComputedStyle(detailView).transform).m42 || 0;
     detailView.style.transition = 'none';
   }
 });
-
 window.addEventListener('pointermove', (e) => {
-  if (!isDraggingDetail) return;
-  e.preventDefault();
-  const deltaY = e.clientY - detailStartY;
-  let newY = detailCurrentY + deltaY;
-  
-  if (newY < FULL_Y) newY = FULL_Y;
-  if (newY > HALF_Y) newY = HALF_Y;
-  
+  if (!isDraggingDetail) return; e.preventDefault();
+  let newY = detailCurrentY + (e.clientY - detailStartY);
+  if (newY < 0) newY = 0;
+  if (newY > window.innerHeight * 0.4) newY = window.innerHeight * 0.4;
   detailView.style.transform = `translateY(${newY}px)`;
 });
-
 window.addEventListener('pointerup', (e) => {
-  if (!isDraggingDetail) return;
-  isDraggingDetail = false;
+  if (!isDraggingDetail) return; isDraggingDetail = false;
   detailView.style.transition = 'transform 0.4s var(--spring)';
   detailView.style.transform = '';
-  
   const deltaY = e.clientY - detailStartY;
-  
-  if (deltaY < -50 || (deltaY < 20 && detailCurrentY < HALF_Y / 2)) {
-    detailView.classList.add('expanded');
-  } else if (deltaY > 50) {
-    detailView.classList.remove('expanded');
-  } else {
-    if (detailView.classList.contains('expanded')) detailView.classList.add('expanded');
-    else detailView.classList.remove('expanded');
-  }
+  if (deltaY < -50 || (deltaY < 20 && detailCurrentY < (window.innerHeight * 0.4) / 2)) detailView.classList.add('expanded');
+  else if (deltaY > 50) detailView.classList.remove('expanded');
 });
 
-/* ================= Recruit Tab ================= */
-const TRAITS = ["專注","重複性工作","視覺指示","手語溝通","團隊協作"];
-const TYPES = ["水吧","備餐","後勤","樓面支援"];
-let seeker = { traits:["專注","重複性工作"], preferredType:["水吧"] };
-
-function renderChips() {
-  document.getElementById("traitChips").innerHTML = TRAITS.map(t =>
-    `<div class="chip ${seeker.traits.includes(t)?'on':''}" onclick="toggleSeeker('traits','${t}')">${t}</div>`
-  ).join("");
-  document.getElementById("typeChips").innerHTML = TYPES.map(t =>
-    `<div class="chip ${seeker.preferredType.includes(t)?'on':''}" onclick="toggleSeeker('preferredType','${t}')">${t}</div>`
-  ).join("");
-}
-
-window.toggleSeeker = (field, val) => {
-  seeker[field] = seeker[field].includes(val) ? seeker[field].filter(x => x !== val) : [...seeker[field], val];
-  renderChips();
-};
-
-window.runMatching = () => {
-  const res = jobs.map(job => {
-    const hits = job.traits.filter(t => seeker.traits.includes(t)).length;
-    const typeHit = seeker.preferredType.includes(job.type) ? 1 : 0;
-    return { job, score: hits * 20 + typeHit * 40, hits };
-  }).sort((a,b) => b.score - a.score);
-
-  document.getElementById("matchResults").innerHTML = `
-    <div class="list-header" style="padding-left:0;">配對結果</div>
-    <div class="inset-grouped-list" style="margin:0;">
-      ${res.map(r => `
-        <div class="list-row">
-          <div class="row-content">
-            <span class="row-title">${r.job.title}</span>
-            <span class="row-subtitle">${r.job.restaurantName} · ${r.job.type}</span>
-          </div>
-          <div class="row-value" style="color:var(--system-green);font-weight:600;">${r.score}%</div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-};
-
-/* ================= Tip Tab ================= */
-function renderTip() {
-  document.getElementById("giftList").innerHTML = GIFTS.map(g => `
-    <div class="list-row" onclick="selectGift('${g.l}')">
-      <div class="row-content" style="flex-direction:row;align-items:center;gap:12px;">
-        <span style="font-size:24px;">${g.e}</span>
-        <span class="row-title">${g.l}</span>
-      </div>
-      <div class="row-value">
-        <span style="font-weight:600;color:var(--label);">HK$${g.a}</span>
-        ${selectedGift.l === g.l ? '<span style="color:var(--system-blue);">✓</span>' : ''}
-      </div>
-    </div>
-  `).join("");
-  document.getElementById("feeText").innerText = `HK$${(selectedGift.a * 0.05).toFixed(2)}`;
-}
-
-window.selectGift = (l) => { selectedGift = GIFTS.find(g => g.l === l); renderTip(); };
-
-window.sendTip = () => {
-  const fx = document.getElementById("fx");
-  for(let i=0; i<15; i++) {
-    const sp = document.createElement("div");
-    sp.className = "firework-particle";
-    sp.innerText = ["🎆","✨","🌟","👏","🤟","💖"][Math.floor(Math.random()*6)];
-    sp.style.left = '50%'; sp.style.top = '50%';
-    sp.style.setProperty("--x", (Math.random()*300-150)+"px");
-    sp.style.setProperty("--y", (Math.random()*-300-50)+"px");
-    fx.appendChild(sp);
-  }
-  setTimeout(() => fx.innerHTML = "", 1500);
-  
-  const totalEl = document.getElementById('staffTotal');
-  let current = parseInt(totalEl.innerText.replace('HK$', ''));
-  totalEl.innerText = `HK$${current + selectedGift.a}`;
-};
-
-/* ================= B2B Tab ================= */
-let wallet = 10000;
-const talents = [{ name:"陳小姐", traits:["專注","視覺指示"] }, { name:"李生", traits:["重複性工作","團隊協作"] }];
-
-function renderB2B() {
-  document.getElementById("b2bTalents").innerHTML = talents.map(t => `
-    <div class="list-row">
-      <div class="row-content">
-        <span class="row-title">${t.name}</span>
-        <span class="row-subtitle">${t.traits.join(" · ")}</span>
-      </div>
-      <button class="btn glass-regular" style="width:auto;padding:8px 16px;margin:0;font-size:13px;color:var(--system-blue);" onclick="hireTalent('${t.name}')">邀請 (HK$3k)</button>
-    </div>
-  `).join("");
-}
-
-window.buyAd = (cost) => {
-  if(wallet < cost) return alert("餘額不足！");
-  wallet -= cost; document.getElementById("walletBal").innerText = `HK$${wallet}`;
-  alert(`已扣除 HK$${cost}！`);
-};
-
-window.hireTalent = (name) => {
-  if(wallet < 3000) return alert("餘額不足！");
-  wallet -= 3000; document.getElementById("walletBal").innerText = `HK$${wallet}`;
-  alert(`已扣除 HK$3,000，向 ${name} 發出面試邀請！`);
-};
-
-/* ================= Init ================= */
-window.addEventListener('DOMContentLoaded', () => {
-  initMap();
-  renderChips();
-  renderTip();
-  renderB2B();
-});
+window.addEventListener('load', initMap);
 </script>
 </body>
 </html>

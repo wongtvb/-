@@ -90,6 +90,15 @@
   }
   .view-container.active { opacity: 1; pointer-events: auto; z-index: 2; }
 
+  /* 綠色微光提示 */
+  #pulse-green {
+    position: fixed; inset: 0; z-index: 9999; pointer-events: none;
+    box-shadow: inset 0 0 100px 20px rgba(52, 199, 89, 0.4);
+    opacity: 0; transition: opacity 0.5s;
+  }
+  .pulse-on { opacity: 1 !important; animation: pulseAnim 1s infinite alternate; }
+  @keyframes pulseAnim { from { opacity: 0.3; } to { opacity: 1; } }
+
   /* =========================================
      Map & Bottom Sheet
      ========================================= */
@@ -279,8 +288,29 @@
   .emoji-btn.on { border-color: var(--system-blue); transform: scale(1.1); background: var(--system-background); }
 
   /* =========================================
-     Double-Way Comm Modal (終極雙向溝通)
+     Overlays (AR, Double-Way Comm)
      ========================================= */
+  #ar-modal {
+    position: fixed; inset: 0; z-index: 3000;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  #ar-modal.active { opacity: 1; pointer-events: auto; }
+  .ar-scan-box {
+    width: 80%; height: 50%; border: 2px dashed rgba(255,255,255,0.5);
+    border-radius: 20px; position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ar-result {
+    background: rgba(255,255,255,0.95); color: #000;
+    padding: 20px; border-radius: 16px; font-size: 16px;
+    margin-top: 20px; text-align: center; width: 80%;
+    display: none; animation: popIn 0.4s var(--spring);
+  }
+  @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  /* 雙向溝通 Modal (語音 + 手語) */
   #comm-modal {
     position: fixed; inset: 0; z-index: 3000;
     background: rgba(0,0,0,0.95); backdrop-filter: blur(15px);
@@ -296,14 +326,23 @@
   }
   .comm-close { background: rgba(255,255,255,0.2); border: none; color: #fff; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; }
 
-  /* 手語識別區 */
+  /* 手語識別區 (用 object-fit: contain 避免裁切) */
   .camera-container {
     position: relative; width: 100%; height: 35vh;
     background: #111; border-radius: 20px; overflow: hidden;
     border: 2px solid rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
   }
-  .camera-container video { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-  .camera-container canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .camera-container video { 
+    position: absolute; width: 100%; height: 100%; 
+    object-fit: contain; 
+    transform: scaleX(-1); 
+  }
+  .camera-container canvas { 
+    position: absolute; width: 100%; height: 100%; 
+    object-fit: contain; 
+    transform: scaleX(-1); 
+  }
   
   .gesture-result {
     margin-top: 10px; font-size: 32px; font-weight: 800; color: var(--system-green);
@@ -331,6 +370,8 @@
 </head>
 <body>
 
+  <div id="pulse-green"></div>
+
   <!-- 1. MAP TAB -->
   <div id="view-map" class="view-container active" style="padding-bottom: 0;">
     <div id="map"></div>
@@ -351,6 +392,21 @@
   <div id="view-recruit" class="view-container">
     <h1 style="padding: 24px 16px 8px 16px; margin:0; font-size: 34px; font-weight:700;">聽障招聘</h1>
     <p style="padding: 0 16px 16px; color: var(--secondary-label); font-size: 15px; margin: 0;">系統自動配對無障礙工作崗位。</p>
+    <div class="form-section">
+      <div class="list-header">基本資料</div>
+      <div class="inset-grouped-list">
+        <div class="list-row" style="margin: 0; padding: 0 16px;">
+          <input type="text" class="input-field" id="seekerName" placeholder="輸入姓名" value="陳小姐" style="width:100%; padding:12px; border:none; background:transparent; color:var(--label); outline:none;">
+        </div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="list-header">擅長嘅工作特質</div>
+      <div class="chips-container" id="traitChips" style="display:flex; flex-wrap:wrap; gap:8px; margin:0 16px;"></div>
+    </div>
+    <div style="padding: 0 16px;">
+      <button class="btn glass-prominent" onclick="runMatching()">開始配對</button>
+    </div>
     <div id="matchResults" style="padding: 16px;"></div>
   </div>
 
@@ -366,9 +422,52 @@
         <div class="row-value" style="color: var(--system-green); font-weight: 600;" id="staffTotal">HK$320</div>
       </div>
     </div>
+    <div class="list-header">選擇虛擬禮物</div>
+    <div class="inset-grouped-list" id="giftList"></div>
+    <div style="padding: 16px;">
+      <div style="display: flex; justify-content: space-between; font-size: 13px; color: var(--secondary-label); margin-bottom: 16px;">
+        <span>平台服務費 (5%)</span>
+        <span id="feeText">HK$0.00</span>
+      </div>
+      <button class="btn glass-prominent" style="background: var(--system-pink); box-shadow: 0 4px 16px rgba(255, 45, 85, 0.3);" onclick="sendTip()">送出打賞 🎆</button>
+    </div>
   </div>
 
-  <!-- Tab Bar -->
+  <!-- 4. B2B TAB (已補回) -->
+  <div id="view-b2b" class="view-container">
+    <h1 style="padding: 24px 16px 8px 16px; margin:0; font-size: 34px; font-weight:700;">餐廳後台</h1>
+    
+    <div class="inset-grouped-list" style="margin-bottom: 24px;">
+      <div class="list-row" style="cursor: default;">
+        <div class="row-content">
+          <span class="row-title">廣告與系統錢包</span>
+          <span class="row-subtitle">可用餘額</span>
+        </div>
+        <div class="row-value" id="walletBal" style="font-size: 20px; font-weight: 600; color: var(--label);">HK$10,000</div>
+      </div>
+    </div>
+
+    <div class="list-header">月費訂閱 (Smart Alert + AR Menu)</div>
+    <div class="inset-grouped-list" style="margin-bottom: 24px;">
+      <div class="list-row" onclick="buyAd(150)">
+        <span class="row-title" style="color: var(--system-blue);">繳交今個月月費</span>
+        <span class="row-value">HK$150</span>
+      </div>
+    </div>
+
+    <div class="list-header">加值服務 (Budget & Design)</div>
+    <div class="inset-grouped-list" style="margin-bottom: 24px;">
+      <div class="list-row" onclick="buyAd(1500)">
+        <span class="row-title" style="color: var(--system-blue);">訂製專屬 3D 吉祥物</span>
+        <span class="row-value">HK$1,500</span>
+      </div>
+    </div>
+
+    <div class="list-header">招聘配對 (Recruitment Fee)</div>
+    <div class="inset-grouped-list" id="b2bTalents"></div>
+  </div>
+
+  <!-- Tab Bar (已補回後台) -->
   <nav class="tab-bar glass-regular">
     <div class="tab-item active" data-target="view-map" onclick="switchTab(this)">
       <span class="tab-icon">🗺️</span><span class="tab-label">地圖</span>
@@ -378,6 +477,9 @@
     </div>
     <div class="tab-item" data-target="view-tip" onclick="switchTab(this)">
       <span class="tab-icon">🎆</span><span class="tab-label">打賞</span>
+    </div>
+    <div class="tab-item" data-target="view-b2b" onclick="switchTab(this)">
+      <span class="tab-icon">💼</span><span class="tab-label">後台</span>
     </div>
   </nav>
 
@@ -414,12 +516,15 @@
         </div>
       </div>
 
-      <!-- 核心功能按鈕 -->
+      <!-- 核心功能按鈕 (已補回雙向溝通) -->
       <div class="action-row">
         <div class="action-btn-wrapper" onclick="openComm()">
           <div class="action-btn" style="color: var(--system-blue);">🤟</div><span class="action-label">雙向溝通</span>
         </div>
-        <div class="action-btn-wrapper" onclick="alert('已呼叫服務！')">
+        <div class="action-btn-wrapper" onclick="openAR()">
+          <div class="action-btn" style="color: var(--system-purple);">📷</div><span class="action-label">AR 掃描</span>
+        </div>
+        <div class="action-btn-wrapper" onclick="triggerServiceCall()">
           <div class="action-btn" style="color: var(--system-green);">🔔</div><span class="action-label">呼叫服務</span>
         </div>
         <div class="action-btn-wrapper" id="actionCall">
@@ -427,12 +532,43 @@
         </div>
       </div>
 
+      <div class="segmented-control">
+        <div class="seg-item active" onclick="switchDetailTab(this, 'tab-overview')">簡介</div>
+        <div class="seg-item" onclick="switchDetailTab(this, 'tab-rating')">評分</div>
+        <div class="seg-item" onclick="switchDetailTab(this, 'tab-staff')">員工</div>
+      </div>
+
       <div class="detail-body">
-        <div class="inset-grouped-list" style="margin:0;">
-          <div class="list-row" style="cursor:default;">
-            <div class="row-content">
-              <span class="row-title">無障礙設施</span>
-              <span class="row-subtitle">入口平坦 · 光線充足 · 提供手語餐牌</span>
+        <div id="tab-overview">
+          <div class="inset-grouped-list" style="margin:0;">
+            <div class="list-row" style="cursor:default;">
+              <div class="row-content">
+                <span class="row-title">無障礙設施</span>
+                <span class="row-subtitle">入口平坦 · 光線充足 · 提供手語餐牌</span>
+              </div>
+            </div>
+            <div class="list-row" style="cursor:default;">
+              <div class="row-content">
+                <span class="row-title">聽障員工比例</span>
+                <span class="row-subtitle">50% 前線員工為聽障人士</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-rating" style="display:none;">
+          <div id="ratingForm"></div>
+          <button class="btn glass-prominent" style="margin-top:16px;" onclick="submitRating()">提交評分</button>
+        </div>
+
+        <div id="tab-staff" style="display:none;">
+          <div class="inset-grouped-list" style="margin:0;">
+            <div class="list-row">
+              <div class="row-content">
+                <span class="row-title">阿明 (水吧)</span>
+                <span class="row-subtitle">擅長：視覺指示 · 專注</span>
+              </div>
+              <button class="btn glass-regular" style="width:auto;padding:6px 12px;margin:0;font-size:13px;color:var(--system-pink);" onclick="quickTip(this)">打賞 🎆</button>
             </div>
           </div>
         </div>
@@ -446,29 +582,43 @@
     </div>
   </div>
 
-  <!-- =========================================
-       終極雙向溝通 Modal (手語 + 語音)
-       ========================================= -->
+  <!-- AR Modal -->
+  <div id="ar-modal" onclick="closeAR()">
+    <div class="ar-scan-box" id="arScanBox">
+      <div style="color:#fff; font-size:40px; margin-bottom:10px;">📷 對準餐牌...</div>
+      <div style="color:#fff; font-size:14px; opacity:0.7;">點擊畫面開始掃描</div>
+    </div>
+    <div class="ar-result" id="arResult">
+      <div style="font-size:40px; margin-bottom:10px;">🧑‍🍳</div>
+      <b>鮮蝦雲吞麵 ($48)</b><br><br>
+      <span style="color:red; font-weight:700;">⚠️ 注意：含甲殼類及花生敏感原</span><br><br>
+      <div style="background:#f0f0f0; padding:10px; border-radius:10px; display:inline-block;">
+        👐 手語示範：<b>「呢個有花生，唔食得」</b>
+      </div>
+    </div>
+  </div>
+
+  <!-- 雙向溝通 Modal (已補回手語鏡頭) -->
   <div id="comm-modal">
     <div class="comm-header">
       <span>🤟 雙向溝通 (手語識別 + 語音字幕)</span>
       <button class="comm-close" onclick="closeComm()">✕</button>
     </div>
     
-    <!-- 上半部：手語鏡頭 -->
     <div class="camera-container">
       <video id="webcam" autoplay playsinline></video>
       <canvas id="output_canvas"></canvas>
     </div>
-    <!-- 手語辨識結果 -->
     <div class="gesture-result" id="gestureResult">請對鏡頭比手勢...</div>
 
-    <!-- 下半部：語音字幕 -->
     <div class="speech-container">
       <div class="speech-label">🎤 店員語音即時字幕</div>
       <div class="speech-text" id="speechText">正在聆聽...</div>
     </div>
   </div>
+
+  <!-- Fireworks Container -->
+  <div class="fireworks-container" id="fx"></div>
 
 <script>
 document.addEventListener('dragstart', e => e.preventDefault());
@@ -478,12 +628,27 @@ document.addEventListener('selectstart', e => e.preventDefault());
 const restaurants = [
   { id:"r1", name:"聰鳴茶座", district:"將軍澳", lat:22.3075, lng:114.2602, score:92, phone:"+852 1234 5678", tags:["社企","手語支援"] },
   { id:"r2", name:"樂農", district:"灣仔", lat:22.2775, lng:114.1733, score:90, phone:"+852 8765 4321", tags:["社企","圖示餐牌"] },
+  { id:"r3", name:"太興", district:"旺角", lat:22.3193, lng:114.1694, score:78, phone:"+852 1111 2222", tags:["連鎖","聽障員工"] },
+  { id:"r5", name:"靜·咖啡", district:"中環", lat:22.2819, lng:114.1582, score:86, phone:"+852 3333 4444", tags:["安靜","手語支援"] },
 ];
 
+const jobs = [
+  { id:"j1", restaurantName:"聰鳴茶座", title:"水吧助理", type:"水吧", traits:["重複性工作","專注","視覺指示"] },
+  { id:"j2", restaurantName:"太興", title:"備餐員", type:"備餐", traits:["重複性工作","專注","圖示SOP"] },
+  { id:"j3", restaurantName:"靜·咖啡", title:"咖啡師學徒", type:"水吧", traits:["專注","視覺指示","手語溝通"] },
+];
+
+const GIFTS = [{e:"☕",l:"虛擬咖啡",a:20},{e:"🏆",l:"傑出員工獎盃",a:50},{e:"💖",l:"專屬愛心",a:100}];
+let selectedGift = GIFTS[0];
+
+/* ================= 全局變數 ================= */
+let map, mapInited = false;
+let currentRestaurant = null;
 const rankSheet = document.getElementById('rankSheet');
 const sheetContent = document.getElementById('sheetContent');
 const detailView = document.getElementById('detail-view');
 const detailBackdrop = document.getElementById('detailBackdrop');
+const pulseGreen = document.getElementById('pulse-green');
 
 /* ================= Navigation ================= */
 function switchTab(el) {
@@ -492,11 +657,13 @@ function switchTab(el) {
   const targetId = el.getAttribute('data-target');
   document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
   document.getElementById(targetId).classList.add('active');
+  if(targetId === 'view-map' && map) setTimeout(() => map.invalidateSize(), 300);
 }
 
-/* ================= Map & Sheet ================= */
+/* ================= Map ================= */
 function initMap(){
-  const map = L.map('map', { zoomControl: false }).setView([22.31,114.17], 12);
+  mapInited = true;
+  map = L.map('map', { zoomControl: false }).setView([22.31,114.17], 12);
   L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { subdomains: ['1','2','3','4'] }).addTo(map);
   
   const icon = L.divIcon({ html:'<div style="background:#007AFF;width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3)"></div>', className:"", iconSize:[20,20] });
@@ -505,30 +672,67 @@ function initMap(){
     L.marker([r.lat,r.lng],{icon}).addTo(map).on('click', () => {
       rankSheet.classList.remove('expanded');
       openDetail(r.id);
-      // 智能定位
-      const zoom = 16;
-      const point = map.project([r.lat, r.lng], zoom);
-      const newPoint = point.add([0, window.innerHeight * 0.3]); 
-      map.flyTo(map.unproject(newPoint, zoom), zoom, { duration: 0.8 });
+      focusOnRestaurant(r.lat, r.lng);
     });
   });
   
+  renderRank();
+}
+
+function renderRank(){
   const html = [...restaurants].sort((a,b)=>b.score-a.score).map((r,i)=>`
-    <div class="list-row" onclick="rankSheet.classList.remove('expanded'); openDetail('${r.id}');">
-      <div class="row-content"><span class="row-title">${i+1}. ${r.name}</span><span class="row-subtitle">${r.district}</span></div>
-      <div class="row-value"><span style="color:var(--system-blue);font-weight:600;">${r.score}</span></div>
+    <div class="list-row" onclick="rankSheet.classList.remove('expanded'); openDetail('${r.id}'); focusOnRestaurant(${r.lat}, ${r.lng});">
+      <div class="row-content">
+        <span class="row-title">${i+1}. ${r.name}</span>
+        <span class="row-subtitle">${r.district}</span>
+      </div>
+      <div class="row-value">
+        <span style="color:var(--system-blue);font-weight:600;">${r.score}</span>
+        <span class="chevron">›</span>
+      </div>
     </div>
   `).join('');
   document.getElementById('rankList').innerHTML = html;
 }
 
+function focusOnRestaurant(lat, lng) {
+  const zoom = 16;
+  const point = map.project([lat, lng], zoom);
+  const offsetY = window.innerHeight * 0.3; 
+  const newPoint = point.add([0, offsetY]); 
+  const newLatLng = map.unproject(newPoint, zoom);
+  map.flyTo(newLatLng, zoom, { duration: 0.8 });
+}
+
+/* ================= 詳情頁邏輯 ================= */
+const DIMS = [
+  { key:"staffFriendliness", label:"店員態度友善度", emojis:["😐","🙂","😊","🤝","🌟"] },
+  { key:"lighting", label:"光線夠唔夠睇口型", emojis:["🌑","🌒","🌓","🌔","💡"] },
+  { key:"noise", label:"環境安靜程度", emojis:["📢","🔉","🔈","🔇","🤫"] },
+];
+
 function openDetail(id) {
-  const r = restaurants.find(x => x.id === id);
-  document.getElementById('detailName').innerText = r.name;
-  document.getElementById('detailNavTitle').innerText = r.name;
-  document.getElementById('detailTags').innerHTML = r.tags.map(t => `<span class="tag">♿ ${t}</span>`).join('');
-  document.getElementById('actionCall').onclick = () => window.location.href = `tel:${r.phone}`;
-  document.getElementById('actionNav').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lng}`, '_blank');
+  currentRestaurant = restaurants.find(x => x.id === id);
+  if(!currentRestaurant) return;
+  
+  document.getElementById('detailName').innerText = currentRestaurant.name;
+  document.getElementById('detailNavTitle').innerText = currentRestaurant.name;
+  document.getElementById('detailTags').innerHTML = currentRestaurant.tags.map(t => `<span class="tag">♿ ${t}</span>`).join('');
+
+  document.getElementById('actionCall').onclick = () => window.location.href = `tel:${currentRestaurant.phone}`;
+  document.getElementById('actionNav').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${currentRestaurant.lat},${currentRestaurant.lng}`, '_blank');
+
+  const formHtml = DIMS.map(d => `
+    <div style="margin-bottom: 24px;">
+      <div style="font-size:15px; font-weight:600; margin-bottom:8px;">${d.label}</div>
+      <div class="emoji-row">
+        ${d.emojis.map((e, i) => `
+          <button class="emoji-btn" onclick="selectEmoji(this)">${e}</button>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('ratingForm').innerHTML = formHtml;
 
   detailView.classList.remove('expanded');
   detailBackdrop.classList.add('active');
@@ -539,14 +743,46 @@ function closeDetail() {
   detailBackdrop.classList.remove('active');
   detailView.classList.remove('active');
   detailView.classList.remove('expanded');
+  detailView.style.transform = '';
 }
 
-/* ================= 終極雙向溝通功能 (語音 + 手語) ================= */
+function switchDetailTab(el, tabId) {
+  document.querySelectorAll('.seg-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('#detail-view .detail-body > div').forEach(d => d.style.display = 'none');
+  document.getElementById(tabId).style.display = 'block';
+}
+
+function selectEmoji(btn) {
+  const row = btn.parentElement;
+  row.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+function submitRating() {
+  if(!currentRestaurant) return;
+  alert(`多謝你嘅評分！🙌\n已成功提交對「${currentRestaurant.name}」嘅評價。`);
+  closeDetail();
+}
+
+/* ================= AR & 雙向溝通功能 ================= */
+function openAR() {
+  document.getElementById('ar-modal').classList.add('active');
+  document.getElementById('arResult').style.display = 'none';
+  document.getElementById('arScanBox').style.display = 'flex';
+  setTimeout(() => {
+    document.getElementById('arScanBox').style.display = 'none';
+    document.getElementById('arResult').style.display = 'block';
+  }, 1500);
+}
+function closeAR() {
+  document.getElementById('ar-modal').classList.remove('active');
+}
+
 let recognition;
 let handCamera = null;
-let isCommOpen = false;
 
-// 1. 初始化語音辨識 (Web Speech API)
+// 初始化語音
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
@@ -562,28 +798,24 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   };
 }
 
-// 2. 初始化手語辨識 (MediaPipe Hands)
+// 初始化手語
 const videoElement = document.getElementById('webcam');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
 let lastGesture = "";
 
-// 簡單手勢判斷邏輯
 function detectGesture(landmarks) {
-  // 計算手指是否伸直 (Y軸向下為正)
   const isFingerStraight = (tipIdx, pipIdx) => landmarks[tipIdx].y < landmarks[pipIdx].y;
-  
   const indexStraight = isFingerStraight(8, 6);
   const middleStraight = isFingerStraight(12, 10);
   const ringStraight = isFingerStraight(16, 14);
   const pinkyStraight = isFingerStraight(20, 18);
-  const thumbStraight = landmarks[4].x < landmarks[3].x; // 粗略判斷大拇指
-
+  const thumbStraight = landmarks[4].x < landmarks[3].x;
   const straightCount = [indexStraight, middleStraight, ringStraight, pinkyStraight].filter(Boolean).length;
 
   if (straightCount === 4 && thumbStraight) return "👋 你好 / 需要幫忙";
   if (straightCount === 0 && !thumbStraight) return "✊ 停止 / 不需要";
-  if (straightCount === 1 && indexStraight && !middleStraight) return "☝️ 等一下 / 有問題";
+  if (straightCount === 1 && indexStraight && !middleStraight) return "☝️ 等一下";
   if (straightCount === 0 && thumbStraight) return "👍 多謝 / 讚好";
   if (straightCount >= 3) return "🙌 謝謝你";
   return null;
@@ -597,12 +829,9 @@ function onResults(results) {
 
   if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
     for (const landmarks of results.multiHandLandmarks) {
-      // 畫手部骨架
       drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#007AFF', lineWidth: 4});
       drawLandmarks(canvasCtx, landmarks, {color: '#FFFFFF', lineWidth: 2, radius: 3});
     }
-    
-    // 辨識結果
     const gesture = detectGesture(results.multiHandLandmarks[0]);
     if (gesture && gesture !== lastGesture) {
       lastGesture = gesture;
@@ -610,9 +839,6 @@ function onResults(results) {
       resDiv.innerText = gesture;
       resDiv.style.transform = 'scale(1.1)';
       setTimeout(() => resDiv.style.transform = 'scale(1)', 200);
-      // 可選：用語音朗讀出嚟
-      // let utterance = new SpeechSynthesisUtterance(gesture);
-      // window.speechSynthesis.speak(utterance);
     }
   } else {
     if (lastGesture !== "") {
@@ -624,72 +850,68 @@ function onResults(results) {
 }
 
 function openComm() {
-  isCommOpen = true;
   document.getElementById('comm-modal').classList.add('active');
-  
-  // 啟動語音
-  if (recognition) {
-    try { recognition.start(); } catch(e) {}
-  }
+  if (recognition) { try { recognition.start(); } catch(e) {} }
 
-  // 啟動鏡頭及手語追蹤
-  const hands = new Hands({locateFile: (file) => {
-    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-  }});
-  hands.setOptions({
-    maxNumHands: 1,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.7
-  });
+  const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+  hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
   hands.onResults(onResults);
 
   handCamera = new Camera(videoElement, {
-    onFrame: async () => {
-      await hands.send({image: videoElement});
-    },
-    width: 640,
-    height: 480
+    onFrame: async () => { await hands.send({image: videoElement}); },
+    width: 640, height: 480
   });
   handCamera.start();
 }
 
 function closeComm() {
-  isCommOpen = false;
   document.getElementById('comm-modal').classList.remove('active');
-  
-  if (recognition) {
-    try { recognition.stop(); } catch(e) {}
-  }
-  if (handCamera) {
-    handCamera.stop();
-  }
+  if (recognition) { try { recognition.stop(); } catch(e) {} }
+  if (handCamera) { handCamera.stop(); }
   document.getElementById('gestureResult').innerText = "請對鏡頭比手勢...";
   document.getElementById('speechText').innerText = "正在聆聽...";
 }
 
-/* ================= Sheet 拖拽 ================= */
+function triggerServiceCall() {
+  pulseGreen.classList.add('pulse-on');
+  setTimeout(() => { pulseGreen.classList.remove('pulse-on'); }, 3000);
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+  alert('🔔 已呼叫服務！\n店員手環已收到通知，即將為你服務。');
+}
+
+function quickTip(btn) {
+  const fxContainer = document.getElementById('fx');
+  for(let i=0; i<15; i++) {
+    const sp = document.createElement("div");
+    sp.className = "firework-particle";
+    sp.innerText = ["🎆","✨","🌟","👏","🤟","💖"][Math.floor(Math.random()*6)];
+    sp.style.left = '50%'; sp.style.top = '50%';
+    sp.style.setProperty("--x", (Math.random()*300-150)+"px");
+    sp.style.setProperty("--y", (Math.random()*-300-50)+"px");
+    fxContainer.appendChild(sp);
+  }
+  setTimeout(() => fxContainer.innerHTML = "", 1500);
+  alert('已送出視覺煙花！🎆');
+}
+
+/* ================= Bottom Sheet 拖拽 ================= */
 let isDragging = false, startY = 0, startTransform = 0;
 rankSheet.addEventListener('pointerdown', (e) => {
   if (e.target.closest('.list-row')) return; 
   startY = e.clientY;
   startTransform = new DOMMatrixReadOnly(window.getComputedStyle(rankSheet).transform).m42 || 0;
-  if (!rankSheet.classList.contains('expanded') || sheetContent.scrollTop <= 0) {
-    isDragging = true; rankSheet.style.transition = 'none';
-  }
+  if (!rankSheet.classList.contains('expanded') || sheetContent.scrollTop <= 0) { isDragging = true; rankSheet.style.transition = 'none'; }
 });
 window.addEventListener('pointermove', (e) => {
   if (!isDragging) return; e.preventDefault();
   let newY = startTransform + (e.clientY - startY);
   const maxY = window.innerHeight - 145;
-  if (newY > maxY) newY = maxY;
-  if (newY < 0) newY = 0;
+  if (newY > maxY) newY = maxY; if (newY < 0) newY = 0;
   rankSheet.style.transform = `translateY(${newY}px)`;
 }, { passive: false });
 window.addEventListener('pointerup', (e) => {
   if (!isDragging) return; isDragging = false;
-  rankSheet.style.transition = 'transform 0.4s var(--spring)';
-  rankSheet.style.transform = '';
+  rankSheet.style.transition = 'transform 0.4s var(--spring)'; rankSheet.style.transform = '';
   const deltaY = e.clientY - startY;
   if (deltaY < -50 || (deltaY < 20 && startTransform < window.innerHeight / 2)) rankSheet.classList.add('expanded');
   else if (deltaY > 50) rankSheet.classList.remove('expanded');
@@ -699,7 +921,6 @@ window.addEventListener('pointerup', (e) => {
 const detailDragArea = document.getElementById('detailDragArea');
 const detailScrollArea = document.getElementById('detailScrollArea');
 let isDraggingDetail = false, detailStartY = 0, detailCurrentY = 0;
-
 detailDragArea.addEventListener('pointerdown', (e) => {
   isDraggingDetail = true; detailStartY = e.clientY;
   detailCurrentY = new DOMMatrixReadOnly(window.getComputedStyle(detailView).transform).m42 || 0;
@@ -715,20 +936,126 @@ detailScrollArea.addEventListener('pointerdown', (e) => {
 window.addEventListener('pointermove', (e) => {
   if (!isDraggingDetail) return; e.preventDefault();
   let newY = detailCurrentY + (e.clientY - detailStartY);
-  if (newY < 0) newY = 0;
-  if (newY > window.innerHeight * 0.4) newY = window.innerHeight * 0.4;
+  if (newY < 0) newY = 0; if (newY > window.innerHeight * 0.4) newY = window.innerHeight * 0.4;
   detailView.style.transform = `translateY(${newY}px)`;
 });
 window.addEventListener('pointerup', (e) => {
   if (!isDraggingDetail) return; isDraggingDetail = false;
-  detailView.style.transition = 'transform 0.4s var(--spring)';
-  detailView.style.transform = '';
+  detailView.style.transition = 'transform 0.4s var(--spring)'; detailView.style.transform = '';
   const deltaY = e.clientY - detailStartY;
   if (deltaY < -50 || (deltaY < 20 && detailCurrentY < (window.innerHeight * 0.4) / 2)) detailView.classList.add('expanded');
   else if (deltaY > 50) detailView.classList.remove('expanded');
 });
 
-window.addEventListener('load', initMap);
+/* ================= Recruit Tab ================= */
+const TRAITS = ["專注","重複性工作","視覺指示","手語溝通","團隊協作"];
+let seeker = { traits:["專注","重複性工作"] };
+
+function renderChips() {
+  document.getElementById("traitChips").innerHTML = TRAITS.map(t =>
+    `<div class="chip" style="padding:8px 16px; border-radius:99px; background:var(--tertiary-system-grouped-background); color:var(--label); cursor:pointer;" onclick="toggleSeeker('${t}')">${t}</div>`
+  ).join("");
+}
+
+window.toggleSeeker = (val) => {
+  seeker.traits = seeker.traits.includes(val) ? seeker.traits.filter(x => x !== val) : [...seeker.traits, val];
+  renderChips();
+};
+
+window.runMatching = () => {
+  const res = jobs.map(job => {
+    const hits = job.traits.filter(t => seeker.traits.includes(t)).length;
+    return { job, score: hits * 20 + 40, hits };
+  }).sort((a,b) => b.score - a.score);
+
+  document.getElementById("matchResults").innerHTML = `
+    <div class="list-header" style="padding-left:0;">配對結果</div>
+    <div class="inset-grouped-list" style="margin:0;">
+      ${res.map(r => `
+        <div class="list-row">
+          <div class="row-content">
+            <span class="row-title">${r.job.title}</span>
+            <span class="row-subtitle">${r.job.restaurantName} · ${r.job.type}</span>
+          </div>
+          <div class="row-value" style="color:var(--system-green);font-weight:600;">${r.score}%</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+};
+
+/* ================= Tip Tab ================= */
+function renderTip() {
+  document.getElementById("giftList").innerHTML = GIFTS.map(g => `
+    <div class="list-row" onclick="selectGift('${g.l}')">
+      <div class="row-content" style="flex-direction:row;align-items:center;gap:12px;">
+        <span style="font-size:24px;">${g.e}</span>
+        <span class="row-title">${g.l}</span>
+      </div>
+      <div class="row-value">
+        <span style="font-weight:600;color:var(--label);">HK$${g.a}</span>
+        ${selectedGift.l === g.l ? '<span style="color:var(--system-blue);">✓</span>' : ''}
+      </div>
+    </div>
+  `).join("");
+  document.getElementById("feeText").innerText = `HK$${(selectedGift.a * 0.05).toFixed(2)}`;
+}
+
+window.selectGift = (l) => { selectedGift = GIFTS.find(g => g.l === l); renderTip(); };
+
+window.sendTip = () => {
+  const fxContainer = document.getElementById("fx");
+  for(let i=0; i<15; i++) {
+    const sp = document.createElement("div");
+    sp.className = "firework-particle";
+    sp.innerText = ["🎆","✨","🌟","👏","🤟","💖"][Math.floor(Math.random()*6)];
+    sp.style.left = '50%'; sp.style.top = '50%';
+    sp.style.setProperty("--x", (Math.random()*300-150)+"px");
+    sp.style.setProperty("--y", (Math.random()*-300-50)+"px");
+    fxContainer.appendChild(sp);
+  }
+  setTimeout(() => fxContainer.innerHTML = "", 1500);
+  
+  const totalEl = document.getElementById('staffTotal');
+  let current = parseInt(totalEl.innerText.replace('HK$', ''));
+  totalEl.innerText = `HK$${current + selectedGift.a}`;
+};
+
+/* ================= B2B Tab (補回) ================= */
+let wallet = 10000;
+const talents = [{ name:"陳小姐", traits:["專注","視覺指示"] }, { name:"李生", traits:["重複性工作","團隊協作"] }];
+
+function renderB2B() {
+  document.getElementById("b2bTalents").innerHTML = talents.map(t => `
+    <div class="list-row">
+      <div class="row-content">
+        <span class="row-title">${t.name}</span>
+        <span class="row-subtitle">${t.traits.join(" · ")}</span>
+      </div>
+      <button class="btn glass-regular" style="width:auto;padding:8px 16px;margin:0;font-size:13px;color:var(--system-blue);" onclick="hireTalent('${t.name}')">邀請 (HK$3k)</button>
+    </div>
+  `).join("");
+}
+
+window.buyAd = (cost) => {
+  if(wallet < cost) return alert("餘額不足！");
+  wallet -= cost; document.getElementById("walletBal").innerText = `HK$${wallet}`;
+  alert(`已扣除 HK$${cost}！`);
+};
+
+window.hireTalent = (name) => {
+  if(wallet < 3000) return alert("餘額不足！");
+  wallet -= 3000; document.getElementById("walletBal").innerText = `HK$${wallet}`;
+  alert(`已扣除 HK$3,000，向 ${name} 發出面試邀請！`);
+};
+
+/* ================= Init ================= */
+window.addEventListener('DOMContentLoaded', () => {
+  initMap();
+  renderChips();
+  renderTip();
+  renderB2B();
+});
 </script>
 </body>
 </html>
